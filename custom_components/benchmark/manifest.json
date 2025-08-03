@@ -1,0 +1,25 @@
+{
+  "domain": "benchmark",
+  "name": "Home Assistant Benchmark",
+  "version": "2.0.0",
+  "config_flow": true,
+  "requirements": [
+    "psutil==5.9.0",
+    "aiofiles==23.1.0"
+  ],
+  "dependencies": [],
+  "documentation": "https://github.com/Jarnsen/hacs-homeassistant-benchmark",
+  "codeowners": ["Jarnsen"],
+  "frontend": {
+    "panel_custom": [
+      {
+        "name": "benchmark",
+        "url_path": "benchmark",
+        "sidebar_title": "Benchmark",
+        "sidebar_icon": "mdi:speedometer",
+        "module_url": "/local/benchmark-panel.js",
+        "embed_iframe": false
+      }
+    ]
+  }
+}
