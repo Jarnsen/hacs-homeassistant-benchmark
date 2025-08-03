@@ -1,10 +1,8 @@
 import voluptuous as vol
 from homeassistant import config_entries
-from .const import DOMAIN, CONF_SHOW_UUID, DEFAULT_SHOW_UUID
+from .const import DOMAIN
 
-STEP_USER_DATA_SCHEMA = vol.Schema({
-    vol.Optional(CONF_SHOW_UUID, default=DEFAULT_SHOW_UUID): bool
-})
+STEP_USER_DATA_SCHEMA = vol.Schema({})
 
 class BenchmarkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None):
@@ -13,4 +11,4 @@ class BenchmarkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 step_id="user",
                 data_schema=STEP_USER_DATA_SCHEMA
             )
-        return self.async_create_entry(title="Benchmark", data=user_input)
+        return self.async_create_entry(title="Benchmark", data={})
