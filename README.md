@@ -2,7 +2,7 @@
 
 ## Installation
 
-1. In HACS → **Custom Repositories** → URL: `https://github.com/DEIN_USER/hacs-homeassistant-benchmark`  
+1. In HACS → **Custom Repositories** → URL: `https://github.com/Jarnsen/hacs-homeassistant-benchmark`  
 2. Kategorie **Integration** → „Home Assistant Benchmark“ installieren  
 3. Über **Settings → Integrations → Add Integration → Benchmark** konfigurieren
 
