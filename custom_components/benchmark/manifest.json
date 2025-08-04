@@ -1,22 +1,14 @@
 {
   "domain": "benchmark",
   "name": "Home Assistant Benchmark",
-  "version": "0.1.2",
-  "config_flow": true,
-  "requirements": [],
-  "dependencies": [],
+  "version": "1.0.0",
   "documentation": "https://github.com/Jarnsen/hacs-homeassistant-benchmark",
-  "codeowners": ["@Jarnsen"],
-  "frontend": {
-    "panel_custom": [
-      {
-        "name": "benchmark",
-        "url_path": "benchmark",
-        "sidebar_title": "Benchmark",
-        "sidebar_icon": "mdi:speedometer",
-        "module_url": "/local/benchmark-panel.js",
-        "embed_iframe": false
-      }
-    ]
-  }
+  "issue_tracker": "https://github.com/Jarnsen/hacs-homeassistant-benchmark/issues",
+  "dependencies": [],
+  "codeowners": [
+    "@Jarnsen"
+  ],
+  "requirements": [],
+  "config_flow": true,
+  "iot_class": "local_polling"
 }
