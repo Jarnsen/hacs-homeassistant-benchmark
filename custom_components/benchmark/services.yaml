@@ -1,0 +1,5 @@
+# services.yaml
+start:
+  name: Start Benchmark
+  description: Führt den Benchmark durch und speichert das Ergebnis.
+  fields: {}
