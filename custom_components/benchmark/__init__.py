@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import time
+import urllib.parse
 import uuid
 from typing import Any
 
@@ -20,44 +21,66 @@ from .const import (
     DATA_ENTITIES,
     DATA_FILE,
     DATA_LAST_ERROR,
+    DATA_LAST_LEADERBOARD_PAYLOAD,
     DATA_LATEST,
     DATA_PROGRESS,
     DATA_RUNNING,
+    DATA_SUBMIT_URL,
     DOMAIN,
+    GITHUB_REPOSITORY,
+    ID_FILE,
     INTEGRATION_VERSION,
     MAX_HISTORY_ENTRIES,
 )
 from .services import compute_score, run_benchmark_async, run_benchmark_sync
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BUTTON]
+RESTART_STATE_FILE = ".benchmark_restart.json"
 
 
-def _read_history(path: str) -> list[dict[str, Any]]:
+def _read_json_file(path: str, default: Any) -> Any:
     if not os.path.exists(path):
-        return []
-
+        return default
     try:
         with open(path, encoding="utf-8") as fp:
-            data = json.load(fp)
+            return json.load(fp)
     except (OSError, json.JSONDecodeError):
-        return []
-
-    return data if isinstance(data, list) else []
+        return default
 
 
-def _write_history(path: str, data: list[dict[str, Any]]) -> None:
+def _write_json_file(path: str, data: Any) -> None:
     tmp_path = f"{path}.tmp"
     with open(tmp_path, "w", encoding="utf-8") as fp:
         json.dump(data, fp, ensure_ascii=False, indent=2)
     os.replace(tmp_path, path)
 
 
+def _read_history(path: str) -> list[dict[str, Any]]:
+    data = _read_json_file(path, [])
+    return data if isinstance(data, list) else []
+
+
 def _append_history(path: str, entry: dict[str, Any], max_entries: int = MAX_HISTORY_ENTRIES) -> list[dict[str, Any]]:
     data = _read_history(path)
     data.append(entry)
     data = data[-max_entries:]
-    _write_history(path, data)
+    _write_json_file(path, data)
     return data
+
+
+def _load_or_create_benchmark_id(path: str) -> str:
+    try:
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as fp:
+                existing = fp.read().strip()
+                if existing:
+                    return existing
+        new_id = uuid.uuid4().hex
+        with open(path, "w", encoding="utf-8") as fp:
+            fp.write(new_id)
+        return new_id
+    except OSError:
+        return uuid.uuid4().hex
 
 
 def _build_leaderboard_payload(benchmark_id: str, result: dict[str, Any]) -> dict[str, Any]:
@@ -100,6 +123,33 @@ def _build_leaderboard_payload(benchmark_id: str, result: dict[str, Any]) -> dic
     }
 
 
+def _build_submit_url(payload: dict[str, Any]) -> str:
+    body = "## Benchmark payload\n\n```json\n" + json.dumps(payload, ensure_ascii=False, indent=2) + "\n```\n"
+    query = urllib.parse.urlencode(
+        {
+            "title": f"Benchmark result: {payload.get('score', 'unknown')}",
+            "body": body,
+            "labels": "benchmark-result",
+        }
+    )
+    return f"https://github.com/{GITHUB_REPOSITORY}/issues/new?{query}"
+
+
+def _load_restart_result(hass: HomeAssistant) -> float | None:
+    path = hass.config.path(RESTART_STATE_FILE)
+    state = _read_json_file(path, {})
+    if not isinstance(state, dict) or state.get("state") != "pending":
+        return None
+    started_at = state.get("started_at")
+    if not isinstance(started_at, (int, float)):
+        return None
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+    return max(round(time.time() - started_at, 1), 0)
+
+
 async def _notify(hass: HomeAssistant, message: str) -> None:
     await hass.services.async_call(
         "persistent_notification",
@@ -120,12 +170,29 @@ async def _set_progress(hass: HomeAssistant, value: int) -> None:
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    path = hass.config.path(DATA_FILE)
-    history = await hass.async_add_executor_job(_read_history, path)
-    hass.data[DATA_LATEST] = history[-1] if history else None
+    history_path = hass.config.path(DATA_FILE)
+    history = await hass.async_add_executor_job(_read_history, history_path)
+    latest = history[-1] if history else None
+
+    hass.data[DATA_LATEST] = latest
     hass.data.setdefault(DATA_PROGRESS, 0)
     hass.data.setdefault(DATA_LAST_ERROR, None)
-    hass.data.setdefault(DATA_BENCHMARK_ID, uuid.uuid4().hex)
+    hass.data[DATA_BENCHMARK_ID] = await hass.async_add_executor_job(
+        _load_or_create_benchmark_id, hass.config.path(ID_FILE)
+    )
+    hass.data[DATA_LAST_LEADERBOARD_PAYLOAD] = latest.get("leaderboard") if latest else None
+    hass.data[DATA_SUBMIT_URL] = _build_submit_url(hass.data[DATA_LAST_LEADERBOARD_PAYLOAD]) if latest and latest.get("leaderboard") else None
+
+    restart_seconds = await hass.async_add_executor_job(_load_restart_result, hass)
+    if restart_seconds is not None:
+        if latest:
+            latest.setdefault("results", {})["ha_restart_s"] = restart_seconds
+            latest["leaderboard"] = _build_leaderboard_payload(hass.data[DATA_BENCHMARK_ID], latest)
+            await hass.async_add_executor_job(_append_history, history_path, latest)
+            hass.data[DATA_LATEST] = latest
+            hass.data[DATA_LAST_LEADERBOARD_PAYLOAD] = latest["leaderboard"]
+            hass.data[DATA_SUBMIT_URL] = _build_submit_url(latest["leaderboard"])
+        await _notify(hass, f"Restart-Benchmark abgeschlossen: {restart_seconds} s")
 
     hass.data.setdefault("benchmark_start_time", time.time())
     hass.bus.async_listen_once(
@@ -141,7 +208,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DATA_RUNNING, False)
     hass.data.setdefault(DATA_PROGRESS, 0)
     hass.data.setdefault(DATA_LAST_ERROR, None)
-    hass.data.setdefault(DATA_BENCHMARK_ID, uuid.uuid4().hex)
+    hass.data.setdefault(DATA_BENCHMARK_ID, await hass.async_add_executor_job(_load_or_create_benchmark_id, hass.config.path(ID_FILE)))
 
     dr = device_registry.async_get(hass)
     device = dr.async_get_or_create(
@@ -186,6 +253,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             history_path = hass.config.path(DATA_FILE)
             await hass.async_add_executor_job(_append_history, history_path, result_entry)
             hass.data[DATA_LATEST] = result_entry
+            hass.data[DATA_LAST_LEADERBOARD_PAYLOAD] = result_entry["leaderboard"]
+            hass.data[DATA_SUBMIT_URL] = _build_submit_url(result_entry["leaderboard"])
 
             await _set_progress(hass, 100)
             await _notify(
@@ -201,7 +270,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.data[DATA_RUNNING] = False
             _update_entities(hass)
 
+    async def handle_restart(call: ServiceCall) -> None:
+        state = {"state": "pending", "started_at": time.time(), "integration_version": INTEGRATION_VERSION}
+        await hass.async_add_executor_job(_write_json_file, hass.config.path(RESTART_STATE_FILE), state)
+        await _notify(hass, "Restart-Benchmark vorbereitet. Home Assistant startet jetzt neu …")
+        await hass.services.async_call("homeassistant", "restart", {}, blocking=True)
+
     hass.services.async_register(DOMAIN, "start", handle_start)
+    hass.services.async_register(DOMAIN, "restart_benchmark", handle_restart)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
@@ -211,6 +287,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if unload_ok:
         hass.services.async_remove(DOMAIN, "start")
+        hass.services.async_remove(DOMAIN, "restart_benchmark")
         hass.data.pop(DATA_DEVICE, None)
         hass.data.pop(DATA_ENTITIES, None)
         hass.data.pop(DATA_RUNNING, None)
