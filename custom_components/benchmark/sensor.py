@@ -1,125 +1,171 @@
 # custom_components/benchmark/sensor.py
 
-import os
-import json
-from homeassistant.helpers.entity import Entity
-from .const import DOMAIN, DATA_FILE
+from __future__ import annotations
 
-SENSOR_DEFS = [
-    # Hardware-Sektion
-    ("hardware", "install_method",     "Installationsmethode", None,   "mdi:package-variant",     None),
-    ("hardware", "ha_core",            "HA Core",             None,   "mdi:home-assistant",      None),
-    ("hardware", "ha_frontend",        "HA Frontend",         None,   "mdi:web",                 None),
-    ("hardware", "ha_supervisor",      "HA Supervisor",       None,   "mdi:octagon-outline",     None),
-    ("hardware", "boot_profile_s",     "Boot-Profil",         "s",    "mdi:clock-start",         1),
-    ("hardware", "ha_restart_s",       "HA Restart Dauer",    "s",    "mdi:restart",            1),
-    ("hardware", "os_system",          "OS System",           None,   "mdi:desktop-tower",       None),
-    ("hardware", "os_version",         "OS Version",          None,   "mdi:information-outline",None),
-    ("hardware", "os_uptime_s",        "OS-Uptime",           "s",    "mdi:timer-sand",          0),
-    ("hardware", "architecture",       "Architektur",         None,   "mdi:chip",                None),
-    ("hardware", "storage_type",       "Speichermedium",      None,   "mdi:harddisk",            None),
-    ("hardware", "virtualization",     "Virtualisierung",     None,   "mdi:server-network",      None),
-    ("hardware", "process_mem_mb",     "HA RAM-Usage",        "MB",   "mdi:memory",              1),
-    ("hardware", "total_ram_mb",       "Total RAM",           "MB",   "mdi:memory",              0),
-    ("hardware", "cpu_usage_percent",  "CPU-Auslastung",      "%",    "mdi:gauge",               1),
-    ("hardware", "cpu_cores",          "CPU-Cores",           "cores","mdi:cpu-64-bit",        0),
-    ("hardware", "process_threads",    "HA-Threads",          None,   "mdi:threads",             0),
-    ("hardware", "system_user",        "System-User",         None,   "mdi:account",             None),
-    ("hardware", "ha_entities",        "HA-Entities",         None,   "mdi:shape",               0),
-    ("hardware", "ha_devices",         "HA-Geräte",           None,   "mdi:tablet-dashboard",    0),
-    ("hardware", "ha_integrations",    "HA-Integrationen",    None,   "mdi:puzzle",              0),
-    ("hardware", "ha_uptime_s",        "HA-Uptime",           "s",    "mdi:timer-outline",       1),
+from dataclasses import dataclass
+from typing import Any
 
-    # Performance-Sektion
-    ("results",  "state_tp_ops_s",     "State-TP",            "ops/s","mdi:swap-vertical",    1),
-    ("results",  "cpu_stress_avg_freq_mhz","CPU-Freq (avg)",  "MHz",  "mdi:speedometer",         1),
-    ("results",  "disk_write_ms",      "Disk-Write (50 MB)",   "ms",   "mdi:download",            1),
-    ("results",  "disk_read_ms",       "Disk-Read (50 MB)",    "ms",   "mdi:upload",              1),
-    ("results",  "eventbus_p95_ms",    "EventBus P95",        "ms",   "mdi:bus",                 1),
-    ("results",  "automation_p95_ms",  "Automation P95",      "ms",   "mdi:flash",               1),
-    ("results",  "api_p50_ms",         "API P50",             "ms",   "mdi:web-check",           1),
-    ("results",  "api_p95_ms",         "API P95",             "ms",   "mdi:web",                 1),
-    ("results",  "ping_p50_ms",        "Ping P50",            "ms",   "mdi:lan",                 1),
-    ("results",  "ping_p95_ms",        "Ping P95",            "ms",   "mdi:lan-connect",         1),
-    ("results",  "service_call_p95_ms","Service-Call P95",    "ms",   "mdi:service-alert",       1),
-    ("results",  "recorder_commit_ms", "Recorder-Commit",     "ms",   "mdi:database",            1),
-    ("results",  "loop_latency_p95_ms","Loop-Latency P95",    "ms",   "mdi:alpha-l-circle",      1),
-    ("results",  "template_render_ms", "Template-Render",     "ms",   "mdi:code-tags",           1),
+from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.const import PERCENTAGE, UnitOfDataRate, UnitOfInformation, UnitOfTime
+from homeassistant.helpers.entity import EntityCategory
 
-    # Gesamt-Score
-    ("results",  "benchmark_score",    "Benchmark-Score",     None,   "mdi:star",                2),
-]
+from .const import ATTRIBUTION, DATA_DEVICE, DATA_ENTITIES, DATA_LAST_ERROR, DATA_LATEST, DATA_PROGRESS, DATA_RUNNING, DOMAIN
+
+
+@dataclass(frozen=True, kw_only=True)
+class BenchmarkSensorEntityDescription(SensorEntityDescription):
+    section: str | None = None
+    value_key: str | None = None
+    digits: int | None = None
+    value_type: str = "data"
+
+
+SENSOR_DESCRIPTIONS: tuple[BenchmarkSensorEntityDescription, ...] = (
+    BenchmarkSensorEntityDescription(
+        key="status",
+        translation_key="status",
+        name="Status",
+        icon="mdi:progress-clock",
+        value_type="status",
+    ),
+    BenchmarkSensorEntityDescription(
+        key="progress",
+        translation_key="progress",
+        name="Progress",
+        icon="mdi:progress-helper",
+        native_unit_of_measurement=PERCENTAGE,
+        value_type="progress",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    BenchmarkSensorEntityDescription(
+        key="last_error",
+        translation_key="last_error",
+        name="Last error",
+        icon="mdi:alert-circle-outline",
+        value_type="last_error",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    BenchmarkSensorEntityDescription(
+        key="benchmark_score",
+        translation_key="benchmark_score",
+        name="Benchmark Score",
+        icon="mdi:star",
+        section="results",
+        value_key="benchmark_score",
+        digits=0,
+    ),
+    BenchmarkSensorEntityDescription(
+        key="last_run",
+        translation_key="last_run",
+        name="Last Run",
+        icon="mdi:calendar-clock",
+        value_type="timestamp",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    BenchmarkSensorEntityDescription(key="install_method", name="Install Method", icon="mdi:package-variant", section="hardware", value_key="install_method", entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="ha_core", name="HA Core", icon="mdi:home-assistant", section="hardware", value_key="ha_core", entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="ha_frontend", name="HA Frontend", icon="mdi:web", section="hardware", value_key="ha_frontend", entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="ha_supervisor", name="HA Supervisor", icon="mdi:octagon-outline", section="hardware", value_key="ha_supervisor", entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="architecture", name="Architecture", icon="mdi:chip", section="hardware", value_key="architecture", entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="storage_type", name="Storage Medium", icon="mdi:harddisk", section="hardware", value_key="storage_type", entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="virtualization", name="Virtualization", icon="mdi:server-network", section="hardware", value_key="virtualization", entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="system_user", name="System User", icon="mdi:account", section="hardware", value_key="system_user", entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="boot_profile_s", name="Boot Profile", icon="mdi:clock-start", native_unit_of_measurement=UnitOfTime.SECONDS, section="hardware", value_key="boot_profile_s", digits=1, entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="ha_uptime_s", name="HA Uptime", icon="mdi:timer-outline", native_unit_of_measurement=UnitOfTime.SECONDS, section="hardware", value_key="ha_uptime_s", digits=0, entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="os_uptime_s", name="OS Uptime", icon="mdi:timer-sand", native_unit_of_measurement=UnitOfTime.SECONDS, section="hardware", value_key="os_uptime_s", digits=0, entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="process_mem_mb", name="HA RAM Usage", icon="mdi:memory", native_unit_of_measurement=UnitOfInformation.MEGABYTES, section="hardware", value_key="process_mem_mb", digits=1, entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="total_ram_mb", name="Total RAM", icon="mdi:memory", native_unit_of_measurement=UnitOfInformation.MEGABYTES, section="hardware", value_key="total_ram_mb", digits=0, entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="cpu_usage_percent", name="CPU Usage", icon="mdi:gauge", native_unit_of_measurement=PERCENTAGE, section="hardware", value_key="cpu_usage_percent", digits=1, entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="cpu_cores", name="CPU Cores", icon="mdi:cpu-64-bit", section="hardware", value_key="cpu_cores", digits=0, entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="process_threads", name="HA Threads", icon="mdi:threads", section="hardware", value_key="process_threads", digits=0, entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="ha_entities", name="HA Entities", icon="mdi:shape", section="hardware", value_key="ha_entities", digits=0, entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="ha_devices", name="HA Devices", icon="mdi:tablet-dashboard", section="hardware", value_key="ha_devices", digits=0, entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="ha_integrations", name="HA Integrations", icon="mdi:puzzle", section="hardware", value_key="ha_integrations", digits=0, entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="state_tp_ops_s", name="State Throughput", icon="mdi:swap-vertical", native_unit_of_measurement="ops/s", section="results", value_key="state_tp_ops_s", digits=1),
+    BenchmarkSensorEntityDescription(key="cpu_loop_ops_s", name="CPU Loop", icon="mdi:speedometer", native_unit_of_measurement="ops/s", section="results", value_key="cpu_loop_ops_s", digits=0),
+    BenchmarkSensorEntityDescription(key="cpu_stress_avg_freq_mhz", name="CPU Frequency", icon="mdi:speedometer-medium", native_unit_of_measurement="MHz", section="results", value_key="cpu_stress_avg_freq_mhz", digits=1),
+    BenchmarkSensorEntityDescription(key="disk_write_mb_s", name="Disk Write", icon="mdi:download", native_unit_of_measurement=UnitOfDataRate.MEGABYTES_PER_SECOND, section="results", value_key="disk_write_mb_s", digits=1),
+    BenchmarkSensorEntityDescription(key="disk_read_mb_s", name="Disk Read", icon="mdi:upload", native_unit_of_measurement=UnitOfDataRate.MEGABYTES_PER_SECOND, section="results", value_key="disk_read_mb_s", digits=1),
+    BenchmarkSensorEntityDescription(key="eventbus_p50_ms", name="EventBus P50", icon="mdi:bus-clock", native_unit_of_measurement=UnitOfTime.MILLISECONDS, section="results", value_key="eventbus_p50_ms", digits=2),
+    BenchmarkSensorEntityDescription(key="eventbus_p95_ms", name="EventBus P95", icon="mdi:bus", native_unit_of_measurement=UnitOfTime.MILLISECONDS, section="results", value_key="eventbus_p95_ms", digits=2),
+    BenchmarkSensorEntityDescription(key="automation_p95_ms", name="Automation P95", icon="mdi:flash", native_unit_of_measurement=UnitOfTime.MILLISECONDS, section="results", value_key="automation_p95_ms", digits=2),
+    BenchmarkSensorEntityDescription(key="service_call_avg_ms", name="Service Call Average", icon="mdi:service-toolbox", native_unit_of_measurement=UnitOfTime.MILLISECONDS, section="results", value_key="service_call_avg_ms", digits=2),
+    BenchmarkSensorEntityDescription(key="service_call_p95_ms", name="Service Call P95", icon="mdi:service-alert", native_unit_of_measurement=UnitOfTime.MILLISECONDS, section="results", value_key="service_call_p95_ms", digits=2),
+    BenchmarkSensorEntityDescription(key="loop_latency_p95_ms", name="Loop Latency P95", icon="mdi:alpha-l-circle", native_unit_of_measurement=UnitOfTime.MILLISECONDS, section="results", value_key="loop_latency_p95_ms", digits=2),
+    BenchmarkSensorEntityDescription(key="template_render_ms", name="Template Render", icon="mdi:code-tags", native_unit_of_measurement=UnitOfTime.MILLISECONDS, section="results", value_key="template_render_ms", digits=2),
+)
+
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    history = hass.config.path(DATA_FILE)
-    device = hass.data[f"{DOMAIN}_device"]
+    device = hass.data[DATA_DEVICE]
+    entities = [BenchmarkSensor(hass, entry.entry_id, device, description) for description in SENSOR_DESCRIPTIONS]
+    async_add_entities(entities)
+    hass.data.setdefault(DATA_ENTITIES, []).extend(entities)
 
-    entities = [
-        BenchmarkSensor(device, history, section, key, name, unit, icon, digits)
-        for section, key, name, unit, icon, digits in SENSOR_DEFS
-    ]
 
-    async_add_entities(entities, True)
-    hass.data.setdefault(f"{DOMAIN}_entities", []).extend(entities)
+class BenchmarkSensor(SensorEntity):
+    entity_description: BenchmarkSensorEntityDescription
+    _attr_has_entity_name = True
+    _attr_attribution = ATTRIBUTION
+    _attr_should_poll = False
 
-class BenchmarkSensor(Entity):
-    def __init__(self, device_entry, history_path, section, key, name, unit, icon, digits):
+    def __init__(self, hass, entry_id: str, device_entry, description: BenchmarkSensorEntityDescription) -> None:
+        self.hass = hass
+        self.entity_description = description
         self._device = device_entry
-        self._history = history_path
-        self._section = section
-        self._key = key
-        self._name = name
-        self._unit = unit
-        self._icon = icon
-        self._digits = digits
-        self._state = None
-
-    @property
-    def available(self):
-        return True
+        self._attr_unique_id = f"{entry_id}_{description.key}"
 
     @property
     def device_info(self):
         return {
-            "identifiers":  self._device.identifiers,
-            "name":         self._device.name,
+            "identifiers": self._device.identifiers,
+            "name": self._device.name,
             "manufacturer": self._device.manufacturer,
-            "model":        self._device.model,
+            "model": self._device.model,
         }
 
     @property
-    def name(self):
-        return f"Benchmark {self._name}"
+    def native_value(self):
+        description = self.entity_description
+
+        if description.value_type == "status":
+            return "running" if self.hass.data.get(DATA_RUNNING) else "idle"
+
+        if description.value_type == "progress":
+            return self.hass.data.get(DATA_PROGRESS, 0)
+
+        if description.value_type == "last_error":
+            return self.hass.data.get(DATA_LAST_ERROR)
+
+        latest = self.hass.data.get(DATA_LATEST)
+        if not latest:
+            return None
+
+        if description.value_type == "timestamp":
+            return latest.get("timestamp")
+
+        section = description.section
+        value_key = description.value_key
+        if not section or not value_key:
+            return None
+
+        value = latest.get(section, {}).get(value_key)
+        if value is None:
+            return None
+
+        if description.digits is not None and isinstance(value, (int, float)):
+            return round(value, description.digits)
+
+        return value
 
     @property
-    def unique_id(self):
-        return f"benchmark_{self._section}_{self._key}"
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        latest = self.hass.data.get(DATA_LATEST)
+        if self.entity_description.key != "benchmark_score" or not latest:
+            return None
 
-    @property
-    def icon(self):
-        return self._icon
-
-    @property
-    def unit_of_measurement(self):
-        return self._unit
-
-    @property
-    def state(self):
-        return self._state if self._state is not None else "n/a"
-
-    def update(self):
-        if not os.path.exists(self._history):
-            self._state = None
-            return
-        try:
-            with open(self._history) as fp:
-                data = json.load(fp)
-            val = data[-1].get(self._section, {}).get(self._key)
-            if val is None:
-                self._state = None
-            elif self._digits is not None and isinstance(val, (int, float)):
-                self._state = round(val, self._digits)
-            else:
-                self._state = val
-        except Exception:
-            self._state = None
+        return {
+            "timestamp": latest.get("timestamp"),
+            "hardware": latest.get("hardware", {}),
+            "results": latest.get("results", {}),
+        }
