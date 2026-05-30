@@ -31,63 +31,12 @@ class BenchmarkSensorEntityDescription(SensorEntityDescription):
 
 
 SENSOR_DESCRIPTIONS: tuple[BenchmarkSensorEntityDescription, ...] = (
-    BenchmarkSensorEntityDescription(
-        key="status",
-        translation_key="status",
-        name="Status",
-        icon="mdi:progress-clock",
-        value_type="status",
-    ),
-    BenchmarkSensorEntityDescription(
-        key="version",
-        translation_key="version",
-        name="Version",
-        icon="mdi:tag-outline",
-        value_type="version",
-        entity_category=EntityCategory.DIAGNOSTIC,
-    ),
-    BenchmarkSensorEntityDescription(
-        key="submit_url",
-        translation_key="submit_url",
-        name="Submit URL",
-        icon="mdi:github",
-        value_type="submit_url",
-        entity_category=EntityCategory.DIAGNOSTIC,
-    ),
-    BenchmarkSensorEntityDescription(
-        key="progress",
-        translation_key="progress",
-        name="Progress",
-        icon="mdi:progress-helper",
-        native_unit_of_measurement=PERCENTAGE,
-        value_type="progress",
-        entity_category=EntityCategory.DIAGNOSTIC,
-    ),
-    BenchmarkSensorEntityDescription(
-        key="last_error",
-        translation_key="last_error",
-        name="Last error",
-        icon="mdi:alert-circle-outline",
-        value_type="last_error",
-        entity_category=EntityCategory.DIAGNOSTIC,
-    ),
-    BenchmarkSensorEntityDescription(
-        key="benchmark_score",
-        translation_key="benchmark_score",
-        name="Benchmark Score",
-        icon="mdi:star",
-        section="results",
-        value_key="benchmark_score",
-        digits=0,
-    ),
-    BenchmarkSensorEntityDescription(
-        key="last_run",
-        translation_key="last_run",
-        name="Last Run",
-        icon="mdi:calendar-clock",
-        value_type="timestamp",
-        entity_category=EntityCategory.DIAGNOSTIC,
-    ),
+    BenchmarkSensorEntityDescription(key="status", translation_key="status", name="Status", icon="mdi:progress-clock", value_type="status"),
+    BenchmarkSensorEntityDescription(key="version", translation_key="version", name="Version", icon="mdi:tag-outline", value_type="version", entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="progress", translation_key="progress", name="Progress", icon="mdi:progress-helper", native_unit_of_measurement=PERCENTAGE, value_type="progress", entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="last_error", translation_key="last_error", name="Last error", icon="mdi:alert-circle-outline", value_type="last_error", entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="benchmark_score", translation_key="benchmark_score", name="Benchmark Score", icon="mdi:star", section="results", value_key="benchmark_score", digits=0),
+    BenchmarkSensorEntityDescription(key="last_run", translation_key="last_run", name="Last Run", icon="mdi:calendar-clock", value_type="timestamp", entity_category=EntityCategory.DIAGNOSTIC),
     BenchmarkSensorEntityDescription(key="install_method", name="Install Method", icon="mdi:package-variant", section="hardware", value_key="install_method", entity_category=EntityCategory.DIAGNOSTIC),
     BenchmarkSensorEntityDescription(key="ha_core", name="HA Core", icon="mdi:home-assistant", section="hardware", value_key="ha_core", entity_category=EntityCategory.DIAGNOSTIC),
     BenchmarkSensorEntityDescription(key="ha_frontend", name="HA Frontend", icon="mdi:web", section="hardware", value_key="ha_frontend", entity_category=EntityCategory.DIAGNOSTIC),
@@ -161,9 +110,6 @@ class BenchmarkSensor(SensorEntity):
         if description.value_type == "version":
             return INTEGRATION_VERSION
 
-        if description.value_type == "submit_url":
-            return self.hass.data.get(DATA_SUBMIT_URL)
-
         if description.value_type == "progress":
             return self.hass.data.get(DATA_PROGRESS, 0)
 
@@ -202,4 +148,5 @@ class BenchmarkSensor(SensorEntity):
             "hardware": latest.get("hardware", {}),
             "results": latest.get("results", {}),
             "leaderboard": latest.get("leaderboard", {}),
+            "submit_url": self.hass.data.get(DATA_SUBMIT_URL),
         }
