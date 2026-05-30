@@ -1,5 +1,9 @@
-# services.yaml
 start:
   name: Start Benchmark
-  description: Führt den Benchmark durch und speichert das Ergebnis.
+  description: Runs the Home Assistant benchmark and stores the result.
+  fields: {}
+
+restart_benchmark:
+  name: Restart Benchmark
+  description: Starts a restart benchmark, restarts Home Assistant, and stores the measured restart duration after Home Assistant comes back online.
   fields: {}
