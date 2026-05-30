@@ -1,45 +1,83 @@
 # custom_components/benchmark/__init__.py
 
-import os
+from __future__ import annotations
+
 import json
+import os
 import time
+from typing import Any
 
-from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import device_registry
-from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 
-from .const import DOMAIN, DATA_FILE
-from .services import (
-    run_benchmark_sync,
-    run_benchmark_async,
-    compute_score,
-)
+from .const import DATA_FILE, DOMAIN
+from .services import compute_score, run_benchmark_async, run_benchmark_sync
 
-def _append_history(path: str, entry: dict) -> None:
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BUTTON]
+
+DATA_DEVICE = f"{DOMAIN}_device"
+DATA_ENTITIES = f"{DOMAIN}_entities"
+DATA_LATEST = f"{DOMAIN}_latest"
+DATA_RUNNING = f"{DOMAIN}_running"
+
+
+def _read_history(path: str) -> list[dict[str, Any]]:
+    if not os.path.exists(path):
+        return []
+
     try:
-        data = json.load(open(path))
-    except Exception:
-        data = []
+        with open(path, encoding="utf-8") as fp:
+            data = json.load(fp)
+    except (OSError, json.JSONDecodeError):
+        return []
+
+    return data if isinstance(data, list) else []
+
+
+def _write_history(path: str, data: list[dict[str, Any]]) -> None:
+    tmp_path = f"{path}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as fp:
+        json.dump(data, fp, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, path)
+
+
+def _append_history(path: str, entry: dict[str, Any], max_entries: int = 50) -> list[dict[str, Any]]:
+    data = _read_history(path)
     data.append(entry)
-    with open(path, "w") as fp:
-        json.dump(data, fp)
+    data = data[-max_entries:]
+    _write_history(path, data)
+    return data
+
+
+async def _notify(hass: HomeAssistant, message: str) -> None:
+    await hass.services.async_call(
+        "persistent_notification",
+        "create",
+        {"title": "Benchmark", "message": message},
+        blocking=False,
+    )
+
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     path = hass.config.path(DATA_FILE)
-    if not os.path.exists(path):
-        with open(path, "w") as fp:
-            json.dump([], fp)
+    history = await hass.async_add_executor_job(_read_history, path)
+    hass.data[DATA_LATEST] = history[-1] if history else None
 
-    # Start- und Ready-Zeit für Boot-Profil
-    hass.data["benchmark_start_time"] = time.time()
+    hass.data.setdefault("benchmark_start_time", time.time())
     hass.bus.async_listen_once(
         EVENT_HOMEASSISTANT_STARTED,
-        lambda e: hass.data.__setitem__("benchmark_ha_ready", time.time()),
+        lambda event: hass.data.__setitem__("benchmark_ha_ready", time.time()),
     )
     return True
 
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    hass.data.setdefault(DOMAIN, {})
+    hass.data.setdefault(DATA_ENTITIES, [])
+    hass.data.setdefault(DATA_RUNNING, False)
+
     dr = device_registry.async_get(hass)
     device = dr.async_get_or_create(
         config_entry_id=entry.entry_id,
@@ -48,57 +86,58 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         manufacturer="Home Assistant",
         model="Benchmark",
     )
-    hass.data[f"{DOMAIN}_device"] = device
+    hass.data[DATA_DEVICE] = device
 
-    async def handle_start(call):
-        # Start-Hinweis
-        await hass.services.async_call(
-            "persistent_notification", "create",
-            {"title": "Benchmark", "message": "Benchmark gestartet …"},
-            blocking=True,
-        )
+    async def handle_start(call: ServiceCall) -> None:
+        if hass.data.get(DATA_RUNNING):
+            await _notify(hass, "Benchmark läuft bereits.")
+            return
 
-        # Sync-Teil
-        sync = await hass.async_add_executor_job(run_benchmark_sync, hass)
-        # Async-Teil
-        asyncr = await run_benchmark_async(hass)
+        hass.data[DATA_RUNNING] = True
+        try:
+            await _notify(hass, "Benchmark gestartet …")
 
-        # Score berechnen (ohne Frontend-Render)
-        merged = {**sync["results"], **asyncr}
-        score_val = compute_score(merged, sync["hardware"])
-        merged["benchmark_score"] = score_val
+            sync = await hass.async_add_executor_job(run_benchmark_sync, hass)
+            async_results = await run_benchmark_async(hass)
 
-        # History
-        entry = {
-            "timestamp": sync["timestamp"],
-            "hardware":  sync["hardware"],
-            "results":   merged,
-        }
-        await hass.async_add_executor_job(
-            _append_history, hass.config.path(DATA_FILE), entry
-        )
+            merged = {**sync["results"], **async_results}
+            merged["benchmark_score"] = compute_score(merged, sync["hardware"])
 
-        # Sensoren aktualisieren
-        for ent in hass.data.get(f"{DOMAIN}_entities", []):
-            ent.update()
-            ent.async_write_ha_state()
+            result_entry = {
+                "timestamp": sync["timestamp"],
+                "hardware": sync["hardware"],
+                "results": merged,
+            }
 
-        # Fertig-Hinweis
-        await hass.services.async_call(
-            "persistent_notification", "create",
-            {"title": "Benchmark", "message": "Benchmark abgeschlossen!"},
-            blocking=True,
-        )
+            history_path = hass.config.path(DATA_FILE)
+            await hass.async_add_executor_job(_append_history, history_path, result_entry)
+            hass.data[DATA_LATEST] = result_entry
 
-        # Neustart HA
-        await hass.services.async_call("homeassistant", "restart", {}, blocking=True)
+            for entity in hass.data.get(DATA_ENTITIES, []):
+                entity.async_write_ha_state()
+
+            await _notify(
+                hass,
+                f"Benchmark abgeschlossen. Score: {merged['benchmark_score']}",
+            )
+        except Exception as err:  # noqa: BLE001 - keep HA usable and show the error
+            await _notify(hass, f"Benchmark fehlgeschlagen: {err}")
+            raise
+        finally:
+            hass.data[DATA_RUNNING] = False
 
     hass.services.async_register(DOMAIN, "start", handle_start)
-    await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "button"])
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    hass.services.async_remove(DOMAIN, "start")
-    await hass.config_entries.async_forward_entry_unload(entry, "sensor")
-    await hass.config_entries.async_forward_entry_unload(entry, "button")
-    return True
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+    if unload_ok:
+        hass.services.async_remove(DOMAIN, "start")
+        hass.data.pop(DATA_DEVICE, None)
+        hass.data.pop(DATA_ENTITIES, None)
+        hass.data.pop(DATA_RUNNING, None)
+
+    return unload_ok
