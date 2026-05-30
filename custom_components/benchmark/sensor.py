@@ -9,7 +9,17 @@ from homeassistant.components.sensor import SensorEntity, SensorEntityDescriptio
 from homeassistant.const import PERCENTAGE, UnitOfDataRate, UnitOfInformation, UnitOfTime
 from homeassistant.helpers.entity import EntityCategory
 
-from .const import ATTRIBUTION, DATA_DEVICE, DATA_ENTITIES, DATA_LAST_ERROR, DATA_LATEST, DATA_PROGRESS, DATA_RUNNING, DOMAIN
+from .const import (
+    ATTRIBUTION,
+    DATA_DEVICE,
+    DATA_ENTITIES,
+    DATA_LAST_ERROR,
+    DATA_LATEST,
+    DATA_PROGRESS,
+    DATA_RUNNING,
+    DATA_SUBMIT_URL,
+    INTEGRATION_VERSION,
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -27,6 +37,22 @@ SENSOR_DESCRIPTIONS: tuple[BenchmarkSensorEntityDescription, ...] = (
         name="Status",
         icon="mdi:progress-clock",
         value_type="status",
+    ),
+    BenchmarkSensorEntityDescription(
+        key="version",
+        translation_key="version",
+        name="Version",
+        icon="mdi:tag-outline",
+        value_type="version",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    BenchmarkSensorEntityDescription(
+        key="submit_url",
+        translation_key="submit_url",
+        name="Submit URL",
+        icon="mdi:github",
+        value_type="submit_url",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     BenchmarkSensorEntityDescription(
         key="progress",
@@ -71,6 +97,7 @@ SENSOR_DESCRIPTIONS: tuple[BenchmarkSensorEntityDescription, ...] = (
     BenchmarkSensorEntityDescription(key="virtualization", name="Virtualization", icon="mdi:server-network", section="hardware", value_key="virtualization", entity_category=EntityCategory.DIAGNOSTIC),
     BenchmarkSensorEntityDescription(key="system_user", name="System User", icon="mdi:account", section="hardware", value_key="system_user", entity_category=EntityCategory.DIAGNOSTIC),
     BenchmarkSensorEntityDescription(key="boot_profile_s", name="Boot Profile", icon="mdi:clock-start", native_unit_of_measurement=UnitOfTime.SECONDS, section="hardware", value_key="boot_profile_s", digits=1, entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorEntityDescription(key="ha_restart_s", name="HA Restart Duration", icon="mdi:restart", native_unit_of_measurement=UnitOfTime.SECONDS, section="results", value_key="ha_restart_s", digits=1),
     BenchmarkSensorEntityDescription(key="ha_uptime_s", name="HA Uptime", icon="mdi:timer-outline", native_unit_of_measurement=UnitOfTime.SECONDS, section="hardware", value_key="ha_uptime_s", digits=0, entity_category=EntityCategory.DIAGNOSTIC),
     BenchmarkSensorEntityDescription(key="os_uptime_s", name="OS Uptime", icon="mdi:timer-sand", native_unit_of_measurement=UnitOfTime.SECONDS, section="hardware", value_key="os_uptime_s", digits=0, entity_category=EntityCategory.DIAGNOSTIC),
     BenchmarkSensorEntityDescription(key="process_mem_mb", name="HA RAM Usage", icon="mdi:memory", native_unit_of_measurement=UnitOfInformation.MEGABYTES, section="hardware", value_key="process_mem_mb", digits=1, entity_category=EntityCategory.DIAGNOSTIC),
@@ -131,6 +158,12 @@ class BenchmarkSensor(SensorEntity):
         if description.value_type == "status":
             return "running" if self.hass.data.get(DATA_RUNNING) else "idle"
 
+        if description.value_type == "version":
+            return INTEGRATION_VERSION
+
+        if description.value_type == "submit_url":
+            return self.hass.data.get(DATA_SUBMIT_URL)
+
         if description.value_type == "progress":
             return self.hass.data.get(DATA_PROGRESS, 0)
 
@@ -168,4 +201,5 @@ class BenchmarkSensor(SensorEntity):
             "timestamp": latest.get("timestamp"),
             "hardware": latest.get("hardware", {}),
             "results": latest.get("results", {}),
+            "leaderboard": latest.get("leaderboard", {}),
         }
