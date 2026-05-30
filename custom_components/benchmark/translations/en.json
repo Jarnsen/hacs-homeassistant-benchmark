@@ -1,0 +1,25 @@
+{
+  "title": "Home Assistant Benchmark",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Home Assistant Benchmark",
+        "description": "Set up the Home Assistant Benchmark integration."
+      }
+    },
+    "abort": {
+      "already_configured": "Home Assistant Benchmark is already configured."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "status": {"name": "Status"},
+      "version": {"name": "Version"},
+      "progress": {"name": "Progress"},
+      "last_error": {"name": "Last error"},
+      "benchmark_score": {"name": "Benchmark Score"},
+      "last_run": {"name": "Last Run"},
+      "submit_url": {"name": "Submit URL"}
+    }
+  }
+}
