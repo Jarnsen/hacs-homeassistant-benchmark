@@ -1,0 +1,26 @@
+name: Submit benchmark result
+description: Submit a Home Assistant benchmark result to the global ranking
+title: "Benchmark result: <score>"
+labels: ["benchmark-result"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Paste the complete JSON payload from the Home Assistant Benchmark integration below.
+        Do not edit the JSON manually.
+  - type: textarea
+    id: benchmark_payload
+    attributes:
+      label: Benchmark payload
+      description: Paste the JSON payload here.
+      render: json
+      placeholder: |
+        {
+          "schema_version": 1,
+          "benchmark_id": "...",
+          "score": 9000,
+          "hardware": {},
+          "results": {}
+        }
+    validations:
+      required: true
