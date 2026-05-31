@@ -5,6 +5,10 @@ NAME = "Home Assistant Benchmark"
 INTEGRATION_VERSION = "2.1.0"
 ATTRIBUTION = "Home Assistant Benchmark by Jarnsen"
 
+GITHUB_REPOSITORY = "Jarnsen/hacs-homeassistant-benchmark"
+GITHUB_REPOSITORY_URL = f"https://github.com/{GITHUB_REPOSITORY}"
+GITHUB_ISSUES_URL = f"{GITHUB_REPOSITORY_URL}/issues/new"
+
 DATA_FILE = ".benchmark_history.json"
 META_FILE = ".benchmark_meta.json"
 EXPORT_JSON_FILE = "benchmark_export.json"
@@ -19,6 +23,8 @@ DATA_LAST_ERROR = f"{DOMAIN}_last_error"
 DATA_LATEST = f"{DOMAIN}_latest"
 DATA_LAST_EXPORT = f"{DOMAIN}_last_export"
 DATA_DASHBOARD_YAML = f"{DOMAIN}_dashboard_yaml"
+DATA_ISSUE_URL = f"{DOMAIN}_issue_url"
+DATA_REPOSITORY_URL = f"{DOMAIN}_repository_url"
 
 MAX_HISTORY_ENTRIES = 50
 SCORE_WARNING_LIMIT = 3500
