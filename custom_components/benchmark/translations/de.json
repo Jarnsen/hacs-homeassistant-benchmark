@@ -1,0 +1,35 @@
+{
+  "title": "Home Assistant Benchmark",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Home Assistant Benchmark einrichten",
+        "description": "Richtet die lokale Benchmark-Integration ein."
+      }
+    },
+    "abort": {
+      "already_configured": "Home Assistant Benchmark ist bereits eingerichtet."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "score": {"name": "Benchmark Score"},
+      "progress": {"name": "Benchmark Fortschritt"},
+      "status": {"name": "Benchmark Status"},
+      "active_profile": {"name": "Aktives Profil"},
+      "last_run": {"name": "Letzter Lauf"},
+      "last_error": {"name": "Letzter Fehler"},
+      "version": {"name": "Version"},
+      "cpu_performance": {"name": "CPU Performance"},
+      "disk_write": {"name": "Disk Schreiben"},
+      "disk_read": {"name": "Disk Lesen"},
+      "template_render": {"name": "Template Rendering"},
+      "restart_time": {"name": "Restart Zeit"}
+    },
+    "button": {
+      "start_light": {"name": "Start Light"},
+      "start_normal": {"name": "Start Normal"},
+      "start_heavy": {"name": "Start Heavy"}
+    }
+  }
+}
