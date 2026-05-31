@@ -1,14 +1,16 @@
 {
   "domain": "benchmark",
   "name": "Home Assistant Benchmark",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "documentation": "https://github.com/Jarnsen/hacs-homeassistant-benchmark",
   "issue_tracker": "https://github.com/Jarnsen/hacs-homeassistant-benchmark/issues",
   "dependencies": [],
   "codeowners": [
     "@Jarnsen"
   ],
-  "requirements": [],
+  "requirements": [
+    "psutil>=6.1.0"
+  ],
   "config_flow": true,
   "iot_class": "local_polling"
 }
