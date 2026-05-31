@@ -14,15 +14,19 @@ from .const import (
     DATA_DASHBOARD_YAML,
     DATA_ENTITIES,
     DATA_FILE,
+    DATA_ISSUE_URL,
     DATA_LAST_ERROR,
     DATA_LAST_EXPORT,
     DATA_LATEST,
     DATA_PROGRESS,
     DATA_PROGRESS_MESSAGE,
+    DATA_REPOSITORY_URL,
     DATA_RUNNING,
     DOMAIN,
     EXPORT_CSV_FILE,
     EXPORT_JSON_FILE,
+    GITHUB_ISSUES_URL,
+    GITHUB_REPOSITORY_URL,
     INTEGRATION_VERSION,
     MAX_HISTORY_ENTRIES,
     META_FILE,
@@ -90,6 +94,11 @@ def _load_restart_time(hass: HomeAssistant) -> float | None:
     return round(max(time.time() - started_at, 0), 1)
 
 
+def _refresh_links(hass: HomeAssistant) -> None:
+    hass.data[DATA_REPOSITORY_URL] = GITHUB_REPOSITORY_URL
+    hass.data[DATA_ISSUE_URL] = GITHUB_ISSUES_URL
+
+
 async def _notify(hass: HomeAssistant, title: str, message: str) -> None:
     await hass.services.async_call(
         "persistent_notification",
@@ -117,6 +126,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DATA_LAST_ERROR, None)
     hass.data.setdefault(DATA_ENTITIES, [])
     hass.data[DATA_DASHBOARD_YAML] = build_dashboard_yaml()
+    _refresh_links(hass)
 
     history = await hass.async_add_executor_job(read_json, hass.config.path(DATA_FILE), [])
     hass.data[DATA_LATEST] = history[-1] if isinstance(history, list) and history else None
@@ -145,6 +155,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DATA_PROGRESS, 0)
     hass.data.setdefault(DATA_PROGRESS_MESSAGE, "Bereit")
     hass.data.setdefault(DATA_LAST_ERROR, None)
+    _refresh_links(hass)
 
     registry = device_registry.async_get(hass)
     device = registry.async_get_or_create(
@@ -201,6 +212,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.exception("Benchmark failed")
             await _notify(hass, "Benchmark fehlgeschlagen", str(err))
         finally:
+            _refresh_links(hass)
             hass.data[DATA_RUNNING] = False
             _update_entities(hass)
 
@@ -222,6 +234,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _update_entities(hass)
         await _notify(hass, "Benchmark Dashboard YAML", f"```yaml\n{yaml}\n```")
 
+    async def handle_create_issue(call: ServiceCall) -> None:
+        _refresh_links(hass)
+        _update_entities(hass)
+        await _notify(
+            hass,
+            "Benchmark Issue melden",
+            f"GitHub Repository:\n{GITHUB_REPOSITORY_URL}\n\nNeues Issue erstellen:\n{GITHUB_ISSUES_URL}",
+        )
+
     hass.services.async_register(
         DOMAIN,
         "start",
@@ -230,6 +251,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     hass.services.async_register(DOMAIN, "export", handle_export)
     hass.services.async_register(DOMAIN, "setup_dashboard", handle_setup_dashboard)
+    hass.services.async_register(DOMAIN, "create_issue", handle_create_issue)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -238,7 +260,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        for service in ("start", "export", "setup_dashboard"):
+        for service in ("start", "export", "setup_dashboard", "create_issue"):
             if hass.services.has_service(DOMAIN, service):
                 hass.services.async_remove(DOMAIN, service)
         hass.data.pop(DATA_ENTITIES, None)
