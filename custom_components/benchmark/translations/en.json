@@ -3,8 +3,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Home Assistant Benchmark",
-        "description": "Set up the Home Assistant Benchmark integration."
+        "title": "Set up Home Assistant Benchmark",
+        "description": "Sets up the local benchmark integration."
       }
     },
     "abort": {
@@ -13,13 +13,23 @@
   },
   "entity": {
     "sensor": {
-      "status": {"name": "Status"},
-      "version": {"name": "Version"},
-      "progress": {"name": "Progress"},
-      "last_error": {"name": "Last error"},
-      "benchmark_score": {"name": "Benchmark Score"},
+      "score": {"name": "Benchmark Score"},
+      "progress": {"name": "Benchmark Progress"},
+      "status": {"name": "Benchmark Status"},
+      "active_profile": {"name": "Active Profile"},
       "last_run": {"name": "Last Run"},
-      "submit_url": {"name": "Submit URL"}
+      "last_error": {"name": "Last Error"},
+      "version": {"name": "Version"},
+      "cpu_performance": {"name": "CPU Performance"},
+      "disk_write": {"name": "Disk Write"},
+      "disk_read": {"name": "Disk Read"},
+      "template_render": {"name": "Template Render"},
+      "restart_time": {"name": "Restart Time"}
+    },
+    "button": {
+      "start_light": {"name": "Start Light"},
+      "start_normal": {"name": "Start Normal"},
+      "start_heavy": {"name": "Start Heavy"}
     }
   }
 }
