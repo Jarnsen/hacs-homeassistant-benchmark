@@ -1,0 +1,52 @@
+title: Home Assistant Benchmark
+views:
+  - title: Benchmark
+    path: benchmark
+    icon: mdi:speedometer
+    cards:
+      - type: entities
+        title: Benchmark Steuerung
+        entities:
+          - entity: sensor.benchmark_score
+          - entity: sensor.benchmark_progress
+          - entity: sensor.benchmark_status
+          - entity: sensor.benchmark_last_run
+          - entity: sensor.benchmark_active_profile
+          - entity: button.benchmark_start_light
+          - entity: button.benchmark_start_normal
+          - entity: button.benchmark_start_heavy
+
+      - type: custom:mini-graph-card
+        name: Benchmark Score
+        entities:
+          - sensor.benchmark_score
+        hours_to_show: 168
+        points_per_hour: 0.25
+        show:
+          extrema: true
+          average: true
+
+      - type: custom:button-card
+        entity: sensor.benchmark_score
+        name: Home Assistant Benchmark
+        icon: mdi:speedometer
+        show_state: true
+        styles:
+          card:
+            - padding: 18px
+            - border-radius: 18px
+          name:
+            - font-size: 18px
+            - font-weight: bold
+          state:
+            - font-size: 28px
+            - font-weight: bold
+
+      - type: entities
+        title: Einzelwerte
+        entities:
+          - entity: sensor.benchmark_cpu_performance
+          - entity: sensor.benchmark_disk_write
+          - entity: sensor.benchmark_disk_read
+          - entity: sensor.benchmark_template_render
+          - entity: sensor.benchmark_restart_time
