@@ -1,9 +1,20 @@
 start:
   name: Start Benchmark
-  description: Runs the Home Assistant benchmark and stores the result.
+  description: Runs the Home Assistant benchmark.
+  fields:
+    profile:
+      name: Profile
+      required: false
+    restart:
+      name: Restart Benchmark
+      required: false
+
+export:
+  name: Export Benchmark
+  description: Export benchmark results to JSON and CSV.
   fields: {}
 
-restart_benchmark:
-  name: Restart Benchmark
-  description: Starts a restart benchmark, restarts Home Assistant, and stores the measured restart duration after Home Assistant comes back online.
+setup_dashboard:
+  name: Setup Dashboard
+  description: Generate Lovelace dashboard configuration.
   fields: {}
