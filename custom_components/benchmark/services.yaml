@@ -26,6 +26,11 @@ export:
   description: Export benchmark results to JSON and CSV.
   fields: {}
 
+export_worldlist:
+  name: Export Worldlist
+  description: Export latest benchmark result for comparison.
+  fields: {}
+
 setup_dashboard:
   name: Setup Dashboard
   description: Generate Lovelace dashboard configuration.
