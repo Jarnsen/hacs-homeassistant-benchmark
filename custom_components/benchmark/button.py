@@ -9,24 +9,21 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
     device = hass.data[DOMAIN]["device"]
     async_add_entities(
         [
-            BenchmarkButton(hass, entry.entry_id, device, "start_light", "Start Light", "mdi:play", "light"),
-            BenchmarkButton(hass, entry.entry_id, device, "start_normal", "Start Normal", "mdi:play-speed", "normal"),
-            BenchmarkButton(hass, entry.entry_id, device, "start_heavy", "Start Heavy", "mdi:rocket-launch", "heavy"),
-            BenchmarkRestartButton(hass, entry.entry_id, device),
+            BenchmarkStartButton(hass, entry.entry_id, device),
+            BenchmarkWorldlistExportButton(hass, entry.entry_id, device),
             BenchmarkIssueButton(hass, entry.entry_id, device),
         ]
     )
 
 
-class BenchmarkButton(ButtonEntity):
+class BenchmarkBaseButton(ButtonEntity):
     _attr_has_entity_name = True
     _attr_attribution = ATTRIBUTION
     _attr_should_poll = False
 
-    def __init__(self, hass, entry_id: str, device_entry, key: str, name: str, icon: str, profile: str) -> None:
+    def __init__(self, hass, entry_id: str, device_entry, key: str, name: str, icon: str) -> None:
         self._hass = hass
         self._device_entry = device_entry
-        self._profile = profile
         self._attr_name = name
         self._attr_icon = icon
         self._attr_unique_id = f"{entry_id}_{key}_button"
@@ -40,65 +37,36 @@ class BenchmarkButton(ButtonEntity):
             "model": self._device_entry.model,
         }
 
-    async def async_press(self) -> None:
-        await self._hass.services.async_call(
-            DOMAIN,
-            "start",
-            {"profile": self._profile, "restart": False},
-            blocking=False,
-        )
 
-
-class BenchmarkRestartButton(ButtonEntity):
-    _attr_has_entity_name = True
-    _attr_attribution = ATTRIBUTION
-    _attr_should_poll = False
-
+class BenchmarkStartButton(BenchmarkBaseButton):
     def __init__(self, hass, entry_id: str, device_entry) -> None:
-        self._hass = hass
-        self._device_entry = device_entry
-        self._attr_name = "Restart Benchmark"
-        self._attr_icon = "mdi:restart"
-        self._attr_unique_id = f"{entry_id}_restart_benchmark_button"
-
-    @property
-    def device_info(self):
-        return {
-            "identifiers": self._device_entry.identifiers,
-            "name": self._device_entry.name,
-            "manufacturer": self._device_entry.manufacturer,
-            "model": self._device_entry.model,
-        }
+        super().__init__(hass, entry_id, device_entry, "start_real_world_benchmark", "Start Real World Benchmark", "mdi:speedometer")
 
     async def async_press(self) -> None:
         await self._hass.services.async_call(
             DOMAIN,
             "start",
-            {"profile": "normal", "restart": True},
+            {"profile": "normal", "restart": False},
             blocking=False,
         )
 
 
-class BenchmarkIssueButton(ButtonEntity):
-    _attr_has_entity_name = True
-    _attr_attribution = ATTRIBUTION
-    _attr_should_poll = False
-
+class BenchmarkWorldlistExportButton(BenchmarkBaseButton):
     def __init__(self, hass, entry_id: str, device_entry) -> None:
-        self._hass = hass
-        self._device_entry = device_entry
-        self._attr_name = "Create Issue"
-        self._attr_icon = "mdi:github"
-        self._attr_unique_id = f"{entry_id}_create_issue_button"
+        super().__init__(hass, entry_id, device_entry, "export_worldlist", "Export Worldlist", "mdi:earth")
 
-    @property
-    def device_info(self):
-        return {
-            "identifiers": self._device_entry.identifiers,
-            "name": self._device_entry.name,
-            "manufacturer": self._device_entry.manufacturer,
-            "model": self._device_entry.model,
-        }
+    async def async_press(self) -> None:
+        await self._hass.services.async_call(
+            DOMAIN,
+            "export_worldlist",
+            {},
+            blocking=False,
+        )
+
+
+class BenchmarkIssueButton(BenchmarkBaseButton):
+    def __init__(self, hass, entry_id: str, device_entry) -> None:
+        super().__init__(hass, entry_id, device_entry, "create_issue", "Create Issue", "mdi:github")
 
     async def async_press(self) -> None:
         await self._hass.services.async_call(
