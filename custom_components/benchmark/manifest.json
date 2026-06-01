@@ -1,7 +1,7 @@
 {
   "domain": "benchmark",
-  "name": "Home Assistant Benchmark",
-  "version": "2.1.1",
+  "name": "Home Assistant Real World Benchmark",
+  "version": "2.1.2",
   "documentation": "https://github.com/Jarnsen/hacs-homeassistant-benchmark",
   "issue_tracker": "https://github.com/Jarnsen/hacs-homeassistant-benchmark/issues",
   "dependencies": [],
