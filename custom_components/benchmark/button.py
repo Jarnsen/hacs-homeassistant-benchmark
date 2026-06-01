@@ -11,6 +11,7 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
         [
             BenchmarkStartButton(hass, entry.entry_id, device),
             BenchmarkWorldlistExportButton(hass, entry.entry_id, device),
+            BenchmarkRankingIssueButton(hass, entry.entry_id, device),
             BenchmarkIssueButton(hass, entry.entry_id, device),
         ]
     )
@@ -59,6 +60,19 @@ class BenchmarkWorldlistExportButton(BenchmarkBaseButton):
         await self._hass.services.async_call(
             DOMAIN,
             "export_worldlist",
+            {},
+            blocking=False,
+        )
+
+
+class BenchmarkRankingIssueButton(BenchmarkBaseButton):
+    def __init__(self, hass, entry_id: str, device_entry) -> None:
+        super().__init__(hass, entry_id, device_entry, "create_ranking_issue", "Create Ranking Issue", "mdi:trophy")
+
+    async def async_press(self) -> None:
+        await self._hass.services.async_call(
+            DOMAIN,
+            "create_ranking_issue",
             {},
             blocking=False,
         )
