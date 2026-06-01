@@ -8,7 +8,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.helpers import device_registry
+from homeassistant.helpers import device_registry, entity_registry as er
 
 from .const import (
     DATA_DASHBOARD_YAML,
@@ -40,6 +40,61 @@ from .storage import atomic_write_json, read_json
 
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BUTTON]
+
+LEGACY_SENSOR_KEYS: tuple[str, ...] = (
+    "install_method",
+    "ha_core",
+    "ha_frontend",
+    "ha_supervisor",
+    "architecture",
+    "storage_type",
+    "virtualization",
+    "system_user",
+    "boot_profile_s",
+    "ha_restart_s",
+    "ha_uptime_s",
+    "os_uptime_s",
+    "process_mem_mb",
+    "total_ram_mb",
+    "cpu_usage_percent",
+    "cpu_cores",
+    "process_threads",
+    "ha_entities",
+    "ha_devices",
+    "ha_integrations",
+    "state_tp_ops_s",
+    "cpu_loop_ops_s",
+    "cpu_stress_avg_freq_mhz",
+    "disk_write_mb_s",
+    "disk_read_mb_s",
+    "eventbus_p50_ms",
+    "eventbus_p95_ms",
+    "automation_p95_ms",
+    "service_call_avg_ms",
+    "service_call_p95_ms",
+    "loop_latency_p95_ms",
+)
+LEGACY_BUTTON_KEYS: tuple[str, ...] = ("start_button", "restart_button")
+
+
+def _cleanup_legacy_entities(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    registry = er.async_get(hass)
+    removed = 0
+
+    for key in LEGACY_SENSOR_KEYS:
+        entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{key}")
+        if entity_id:
+            registry.async_remove(entity_id)
+            removed += 1
+
+    for key in LEGACY_BUTTON_KEYS:
+        entity_id = registry.async_get_entity_id("button", DOMAIN, f"{entry.entry_id}_{key}")
+        if entity_id:
+            registry.async_remove(entity_id)
+            removed += 1
+
+    if removed:
+        _LOGGER.info("Removed %s legacy benchmark entities", removed)
 
 
 def _append_history(path: str, entry: dict) -> list[dict]:
@@ -156,6 +211,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DATA_PROGRESS_MESSAGE, "Bereit")
     hass.data.setdefault(DATA_LAST_ERROR, None)
     _refresh_links(hass)
+    _cleanup_legacy_entities(hass, entry)
 
     registry = device_registry.async_get(hass)
     device = registry.async_get_or_create(
