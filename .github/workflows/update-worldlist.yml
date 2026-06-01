@@ -1,0 +1,40 @@
+name: Update Worldlist
+
+on:
+  workflow_dispatch:
+  issues:
+    types:
+      - opened
+      - edited
+      - labeled
+      - reopened
+      - closed
+
+permissions:
+  contents: write
+  issues: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build worldlist
+        run: python .github/scripts/build_worldlist.py
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Commit worldlist
+        run: |
+          if git diff --quiet -- docs/worldlist.json docs/worldlist.md; then
+            echo "Worldlist unchanged"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/worldlist.json docs/worldlist.md
+          git commit -m "Update benchmark worldlist"
+          git push
