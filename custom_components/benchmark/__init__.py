@@ -18,6 +18,7 @@ from .const import (
     DATA_DASHBOARD_YAML,
     DATA_ENTITIES,
     DATA_FILE,
+    DATA_HISTORY,
     DATA_ISSUE_URL,
     DATA_LAST_ERROR,
     DATA_LAST_EXPORT,
@@ -136,6 +137,37 @@ def _build_worldlist_payload(latest: dict | None) -> dict:
     }
 
 
+def _build_local_ranking(history: list[dict]) -> list[dict]:
+    ranking: list[dict] = []
+    for entry in history:
+        if not isinstance(entry, dict):
+            continue
+        results = entry.get("results", {}) if isinstance(entry.get("results", {}), dict) else {}
+        system = entry.get("system", {}) if isinstance(entry.get("system", {}), dict) else {}
+        score = results.get("benchmark_score")
+        if not isinstance(score, int | float):
+            continue
+        entity_count = system.get("entity_count")
+        ranking.append(
+            {
+                "score": int(score),
+                "timestamp": entry.get("timestamp"),
+                "profile": entry.get("profile"),
+                "load_class": _load_class(entity_count if isinstance(entity_count, int) else None),
+                "entity_count": entity_count,
+                "architecture": system.get("architecture"),
+                "cpu_cores": system.get("cpu_cores_logical"),
+                "ram_total_mb": system.get("ram_total_mb"),
+                "cpu_ops_s": results.get("cpu_ops_s"),
+                "disk_write_mb_s": results.get("disk_write_mb_s"),
+                "disk_read_mb_s": results.get("disk_read_mb_s"),
+                "template_render_ms": results.get("template_render_ms"),
+                "restart_time_s": results.get("restart_time_s"),
+            }
+        )
+    return sorted(ranking, key=lambda item: item["score"], reverse=True)[:10]
+
+
 def _build_ranking_issue_url(payload: dict) -> str:
     score = payload.get("benchmark", {}).get("score")
     load_class = payload.get("home_assistant_load", {}).get("load_class")
@@ -144,28 +176,33 @@ def _build_ranking_issue_url(payload: dict) -> str:
     title = f"Ranking submission: score {score} / {load_class}"
     body = (
         "## Ranking submission\n\n"
-        "I want to submit this anonymous Home Assistant Real World Benchmark result to the ranking/worldlist.\n\n"
+        "I want to submit this anonymous Home Assistant Real World Benchmark result.\n\n"
         f"- Score: {score}\n"
         f"- Load class: {load_class}\n"
         f"- Entities: {entity_count}\n"
         f"- Architecture: {system_class.get('architecture')}\n"
         f"- CPU cores logical: {system_class.get('cpu_cores_logical')}\n"
         f"- RAM MB: {system_class.get('ram_total_mb')}\n\n"
-        "```json\n"
-        + json.dumps(payload, ensure_ascii=False, indent=2)
-        + "\n```\n"
+        "The full anonymous export file is: `/config/benchmark_worldlist_export.json`.\n"
+        "Paste the file content below if you want the result to be added to the public list.\n\n"
+        "```json\nPASTE_EXPORT_HERE\n```\n"
     )
     return f"{GITHUB_ISSUES_URL}?" + urllib.parse.urlencode({"title": title, "body": body, "labels": "ranking,worldlist"})
 
 
 def _build_support_issue_url(hass: HomeAssistant) -> str:
     latest = hass.data.get(DATA_LATEST)
-    body = {
-        "benchmark_version": INTEGRATION_VERSION,
-        "last_error": hass.data.get(DATA_LAST_ERROR),
-        "latest": _build_worldlist_payload(latest) if latest else None,
-    }
-    issue_body = "## Problem description\n\nPlease describe the issue here.\n\n## Diagnostic data\n\n```json\n" + json.dumps(body, ensure_ascii=False, indent=2) + "\n```\n"
+    score = None
+    if isinstance(latest, dict):
+        score = latest.get("results", {}).get("benchmark_score")
+    issue_body = (
+        "## Problem description\n\n"
+        "Please describe the issue here.\n\n"
+        "## Basic diagnostic data\n\n"
+        f"- Benchmark version: {INTEGRATION_VERSION}\n"
+        f"- Last error: {hass.data.get(DATA_LAST_ERROR)}\n"
+        f"- Last score: {score}\n"
+    )
     return f"{GITHUB_ISSUES_URL}?" + urllib.parse.urlencode({"title": f"Benchmark issue {INTEGRATION_VERSION}", "body": issue_body, "labels": "bug"})
 
 
@@ -273,16 +310,19 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data[DATA_DASHBOARD_YAML] = build_dashboard_yaml()
 
     history = await hass.async_add_executor_job(read_json, hass.config.path(DATA_FILE), [])
-    hass.data[DATA_LATEST] = history[-1] if isinstance(history, list) and history else None
+    if not isinstance(history, list):
+        history = []
+    hass.data[DATA_HISTORY] = history
+    hass.data[DATA_LATEST] = history[-1] if history else None
     _refresh_links(hass)
 
     async def welcome(_event) -> None:
         meta = await hass.async_add_executor_job(read_json, hass.config.path(META_FILE), {})
         if not isinstance(meta, dict):
             meta = {}
-        if not meta.get("welcome_shown_2_1_5"):
+        if not meta.get("welcome_shown_2_1_7"):
             await _notify(hass, "Home Assistant Real World Benchmark", "Willkommen beim Home Assistant Real World Benchmark.")
-            meta["welcome_shown_2_1_5"] = True
+            meta["welcome_shown_2_1_7"] = True
             await hass.async_add_executor_job(atomic_write_json, hass.config.path(META_FILE), meta)
 
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, welcome)
@@ -296,6 +336,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DATA_PROGRESS, 0)
     hass.data.setdefault(DATA_PROGRESS_MESSAGE, "Bereit")
     hass.data.setdefault(DATA_LAST_ERROR, None)
+    hass.data.setdefault(DATA_HISTORY, [])
     _refresh_links(hass)
     _cleanup_legacy_entities(hass, entry)
 
@@ -331,6 +372,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             restart_time = await hass.async_add_executor_job(_load_restart_time, hass)
             result = await run_benchmark(hass, profile, restart_time, lambda value, message: _set_progress(hass, value, message))
             history = await hass.async_add_executor_job(_append_history, hass.config.path(DATA_FILE), result)
+            hass.data[DATA_HISTORY] = history
             hass.data[DATA_LATEST] = result
             await _set_progress(hass, 100, "Benchmark abgeschlossen")
             score = result.get("results", {}).get("benchmark_score")
@@ -357,6 +399,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         csv_path = hass.config.path(EXPORT_CSV_FILE)
         await hass.async_add_executor_job(atomic_write_json, json_path, history)
         await hass.async_add_executor_job(_export_csv, csv_path, history)
+        hass.data[DATA_HISTORY] = history
         hass.data[DATA_LAST_EXPORT] = {"json": json_path, "csv": csv_path}
         _update_entities(hass)
         await _notify(hass, "Benchmark Export", f"Export erstellt:\nJSON: {json_path}\nCSV: {csv_path}")
@@ -380,10 +423,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await _notify(hass, "Ranking Issue", "Es gibt noch kein Benchmark-Ergebnis. Starte zuerst einen Benchmark.")
             return
         payload = _build_worldlist_payload(latest)
+        export_path = hass.config.path(WORLDLIST_EXPORT_FILE)
+        await hass.async_add_executor_job(atomic_write_json, export_path, payload)
         url = _build_ranking_issue_url(payload)
+        hass.data[DATA_LAST_WORLDLIST_EXPORT] = export_path
         hass.data[DATA_RANKING_ISSUE_URL] = url
         _update_entities(hass)
-        await _notify(hass, "Ranking Issue", f"Öffne diesen Link, um dein anonymes Ergebnis für die Ranking-/Worldlist einzureichen:\n\n{url}")
+        await _notify(hass, "Ranking Issue", f"Öffne diesen Link und füge den Inhalt aus {export_path} in das Issue ein:\n\n{url}")
 
     async def handle_setup_dashboard(call: ServiceCall) -> None:
         yaml = build_dashboard_yaml()
