@@ -11,6 +11,7 @@ from .const import (
     ATTRIBUTION,
     DATA_DASHBOARD_YAML,
     DATA_ENTITIES,
+    DATA_HISTORY,
     DATA_ISSUE_URL,
     DATA_LAST_ERROR,
     DATA_LAST_EXPORT,
@@ -47,6 +48,7 @@ SENSORS: tuple[BenchmarkSensorDescription, ...] = (
     BenchmarkSensorDescription(key="architecture", name="Architecture", icon="mdi:chip", section="system", value_key="architecture", value_type="system", entity_category=EntityCategory.DIAGNOSTIC),
     BenchmarkSensorDescription(key="cpu_cores", name="CPU Cores", icon="mdi:cpu-64-bit", section="system", value_key="cpu_cores_logical", value_type="system", digits=0, entity_category=EntityCategory.DIAGNOSTIC),
     BenchmarkSensorDescription(key="ram_total", name="RAM Total", icon="mdi:memory", native_unit_of_measurement="MB", section="system", value_key="ram_total_mb", value_type="system", digits=0, entity_category=EntityCategory.DIAGNOSTIC),
+    BenchmarkSensorDescription(key="local_ranking", name="Local Ranking", icon="mdi:format-list-numbered", value_type="local_ranking", entity_category=EntityCategory.DIAGNOSTIC),
     BenchmarkSensorDescription(key="worldlist_export", name="Worldlist Export", icon="mdi:file-export-outline", value_type="worldlist_export", entity_category=EntityCategory.DIAGNOSTIC),
     BenchmarkSensorDescription(key="ranking_issue", name="Ranking Issue", icon="mdi:trophy", value_type="ranking_issue", entity_category=EntityCategory.DIAGNOSTIC),
     BenchmarkSensorDescription(key="support_issue", name="Support Issue", icon="mdi:github", value_type="support_issue", entity_category=EntityCategory.DIAGNOSTIC),
@@ -75,6 +77,37 @@ def _load_class(entity_count: int | None) -> str:
     if entity_count < 1500:
         return "large"
     return "very_large"
+
+
+def _local_ranking(history: list[dict]) -> list[dict]:
+    ranking: list[dict] = []
+    for entry in history:
+        if not isinstance(entry, dict):
+            continue
+        results = entry.get("results", {}) if isinstance(entry.get("results", {}), dict) else {}
+        system = entry.get("system", {}) if isinstance(entry.get("system", {}), dict) else {}
+        score = results.get("benchmark_score")
+        if not isinstance(score, int | float):
+            continue
+        entity_count = system.get("entity_count")
+        ranking.append(
+            {
+                "score": int(score),
+                "timestamp": entry.get("timestamp"),
+                "profile": entry.get("profile"),
+                "load_class": _load_class(entity_count if isinstance(entity_count, int) else None),
+                "entity_count": entity_count,
+                "architecture": system.get("architecture"),
+                "cpu_cores": system.get("cpu_cores_logical"),
+                "ram_total_mb": system.get("ram_total_mb"),
+                "cpu_ops_s": results.get("cpu_ops_s"),
+                "disk_write_mb_s": results.get("disk_write_mb_s"),
+                "disk_read_mb_s": results.get("disk_read_mb_s"),
+                "template_render_ms": results.get("template_render_ms"),
+                "restart_time_s": results.get("restart_time_s"),
+            }
+        )
+    return sorted(ranking, key=lambda item: item["score"], reverse=True)[:10]
 
 
 class BenchmarkSensor(SensorEntity):
@@ -116,6 +149,9 @@ class BenchmarkSensor(SensorEntity):
             return "ready" if self.hass.data.get(DATA_RANKING_ISSUE_URL) else "not_ready"
         if description.value_type == "support_issue":
             return "ready" if self.hass.data.get(DATA_ISSUE_URL) else "not_ready"
+        if description.value_type == "local_ranking":
+            ranking = _local_ranking(self.hass.data.get(DATA_HISTORY, []))
+            return ranking[0]["score"] if ranking else None
 
         latest = self.hass.data.get(DATA_LATEST)
         if not latest:
@@ -164,6 +200,14 @@ class BenchmarkSensor(SensorEntity):
                 "support_issue_url": self.hass.data.get(DATA_ISSUE_URL),
                 "repository_url": self.hass.data.get(DATA_REPOSITORY_URL),
                 "dashboard_yaml": self.hass.data.get(DATA_DASHBOARD_YAML),
+            }
+
+        if key == "local_ranking":
+            ranking = _local_ranking(self.hass.data.get(DATA_HISTORY, []))
+            return {
+                "entries": ranking,
+                "ranking_list_url": "https://github.com/Jarnsen/hacs-homeassistant-benchmark/issues?q=is%3Aissue%20label%3Aranking",
+                "note": "Local ranking uses the benchmark history stored in this Home Assistant instance.",
             }
 
         if key == "worldlist_export":
