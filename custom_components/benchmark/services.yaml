@@ -4,10 +4,22 @@ start:
   fields:
     profile:
       name: Profile
+      description: Benchmark profile to use.
       required: false
+      default: normal
+      selector:
+        select:
+          options:
+            - light
+            - normal
+            - heavy
     restart:
       name: Restart Benchmark
+      description: Restart Home Assistant and measure restart time.
       required: false
+      default: false
+      selector:
+        boolean:
 
 export:
   name: Export Benchmark
@@ -17,4 +29,9 @@ export:
 setup_dashboard:
   name: Setup Dashboard
   description: Generate Lovelace dashboard configuration.
+  fields: {}
+
+create_issue:
+  name: Create GitHub Issue
+  description: Shows links to the GitHub repository and issue tracker.
   fields: {}
