@@ -1,33 +1,123 @@
 def build_dashboard_yaml():
-    return '''title: Home Assistant Benchmark
+    return '''title: Home Assistant Real World Benchmark
 views:
-  - title: Benchmark
-    path: benchmark
+  - title: Real World Benchmark
+    path: real-world-benchmark
     icon: mdi:speedometer
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Real World Score
+            icon: mdi:speedometer
+          - type: gauge
+            entity: sensor.benchmark_score
+            name: Real World Score
+            min: 0
+            max: 10000
+            severity:
+              red: 0
+              yellow: 3500
+              green: 7000
+          - type: tile
+            entity: sensor.benchmark_status
+            name: Status
+          - type: tile
+            entity: sensor.benchmark_progress
+            name: Fortschritt
+          - type: tile
+            entity: button.benchmark_start_real_world_benchmark
+            name: Start Real World Benchmark
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Ergebnisse
+            icon: mdi:chart-box-outline
+          - type: tile
+            entity: sensor.benchmark_cpu_performance
+            name: CPU Performance
+          - type: tile
+            entity: sensor.benchmark_disk_write
+            name: Disk Schreiben
+          - type: tile
+            entity: sensor.benchmark_disk_read
+            name: Disk Lesen
+          - type: tile
+            entity: sensor.benchmark_template_render
+            name: Template Rendering
+          - type: tile
+            entity: sensor.benchmark_restart_time
+            name: Restart Zeit
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Diagnose & Export
+            icon: mdi:earth
+          - type: tile
+            entity: sensor.benchmark_active_profile
+            name: Profil
+          - type: tile
+            entity: sensor.benchmark_last_run
+            name: Letzter Lauf
+          - type: tile
+            entity: sensor.benchmark_version
+            name: Version
+          - type: tile
+            entity: button.benchmark_export_worldlist
+            name: Export Worldlist
+          - type: tile
+            entity: button.benchmark_create_ranking_issue
+            name: Ranking Issue erstellen
+          - type: tile
+            entity: button.benchmark_create_issue
+            name: Support Issue erstellen
+
+  - title: Worldlist
+    path: benchmark-worldlist
+    icon: mdi:earth
     cards:
+      - type: markdown
+        title: Worldlist / Ranking
+        content: >
+          ## 🌍 Home Assistant Real World Benchmark Worldlist
+
+          Dieser Bereich ist für die spätere öffentliche Vergleichsliste vorbereitet.
+
+          Aktuell erzeugt die Integration einen anonymen JSON-Export und ein vorgefülltes GitHub-Issue.
+          Daraus kann später automatisch ein Ranking aufgebaut werden.
+
+          **Ablauf:**
+
+          1. Benchmark starten
+          2. Worldlist exportieren
+          3. Ranking Issue erstellen
+          4. Ergebnis auf GitHub einreichen
+
+      - type: picture
+        image: https://raw.githubusercontent.com/Jarnsen/hacs-homeassistant-benchmark/main/images/worldmap-ranking.svg
+        alt_text: Home Assistant Benchmark Worldmap
+
       - type: entities
-        title: Benchmark Steuerung
+        title: Ranking Aktionen
+        entities:
+          - button.benchmark_start_real_world_benchmark
+          - button.benchmark_export_worldlist
+          - button.benchmark_create_ranking_issue
+          - button.benchmark_create_issue
+
+      - type: entities
+        title: Aktuelles Ergebnis
         entities:
           - sensor.benchmark_score
-          - sensor.benchmark_progress
-          - sensor.benchmark_status
-          - sensor.benchmark_last_run
-          - sensor.benchmark_active_profile
-          - button.benchmark_start_light
-          - button.benchmark_start_normal
-          - button.benchmark_start_heavy
-
-      - type: custom:mini-graph-card
-        name: Benchmark Score
-        entities:
-          - sensor.benchmark_score
-
-      - type: entities
-        title: Einzelwerte
-        entities:
           - sensor.benchmark_cpu_performance
           - sensor.benchmark_disk_write
           - sensor.benchmark_disk_read
           - sensor.benchmark_template_render
           - sensor.benchmark_restart_time
+          - sensor.benchmark_last_run
+          - sensor.benchmark_active_profile
 '''
