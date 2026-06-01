@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import csv
 import datetime as dt
+import json
 import logging
 import os
 import time
+import urllib.parse
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
@@ -22,6 +25,7 @@ from .const import (
     DATA_LATEST,
     DATA_PROGRESS,
     DATA_PROGRESS_MESSAGE,
+    DATA_RANKING_ISSUE_URL,
     DATA_REPOSITORY_URL,
     DATA_RUNNING,
     DOMAIN,
@@ -53,7 +57,16 @@ LEGACY_SENSOR_KEYS: tuple[str, ...] = (
     "eventbus_p95_ms", "automation_p95_ms", "service_call_avg_ms", "service_call_p95_ms",
     "loop_latency_p95_ms",
 )
-LEGACY_BUTTON_KEYS: tuple[str, ...] = ("start_button", "restart_button")
+LEGACY_BUTTON_KEYS: tuple[str, ...] = (
+    "start_button", "restart_button", "start_light_button", "start_normal_button", "start_heavy_button",
+    "restart_benchmark_button",
+)
+LEGACY_ENTITY_IDS: tuple[str, ...] = (
+    "button.benchmark_start_light",
+    "button.benchmark_start_normal",
+    "button.benchmark_start_heavy",
+    "button.benchmark_restart_benchmark",
+)
 
 
 def _load_class(entity_count: int | None) -> str:
@@ -73,6 +86,7 @@ def _build_worldlist_payload(latest: dict | None) -> dict:
     system = latest.get("system", {}) if isinstance(latest.get("system", {}), dict) else {}
     results = latest.get("results", {}) if isinstance(latest.get("results", {}), dict) else {}
     entity_count = system.get("entity_count")
+    load_class = _load_class(entity_count if isinstance(entity_count, int) else None)
 
     return {
         "schema": "ha_real_world_benchmark_worldlist_v1",
@@ -99,7 +113,7 @@ def _build_worldlist_payload(latest: dict | None) -> dict:
         },
         "home_assistant_load": {
             "entity_count": entity_count,
-            "load_class": _load_class(entity_count if isinstance(entity_count, int) else None),
+            "load_class": load_class,
             "process_memory_mb": system.get("process_memory_mb"),
             "process_threads": system.get("process_threads"),
         },
@@ -122,6 +136,39 @@ def _build_worldlist_payload(latest: dict | None) -> dict:
     }
 
 
+def _build_ranking_issue_url(payload: dict) -> str:
+    score = payload.get("benchmark", {}).get("score")
+    load_class = payload.get("home_assistant_load", {}).get("load_class")
+    entity_count = payload.get("home_assistant_load", {}).get("entity_count")
+    system_class = payload.get("system_class", {})
+    title = f"Ranking submission: score {score} / {load_class}"
+    body = (
+        "## Ranking submission\n\n"
+        "I want to submit this anonymous Home Assistant Real World Benchmark result to the ranking/worldlist.\n\n"
+        f"- Score: {score}\n"
+        f"- Load class: {load_class}\n"
+        f"- Entities: {entity_count}\n"
+        f"- Architecture: {system_class.get('architecture')}\n"
+        f"- CPU cores logical: {system_class.get('cpu_cores_logical')}\n"
+        f"- RAM MB: {system_class.get('ram_total_mb')}\n\n"
+        "```json\n"
+        + json.dumps(payload, ensure_ascii=False, indent=2)
+        + "\n```\n"
+    )
+    return f"{GITHUB_ISSUES_URL}?" + urllib.parse.urlencode({"title": title, "body": body, "labels": "ranking,worldlist"})
+
+
+def _build_support_issue_url(hass: HomeAssistant) -> str:
+    latest = hass.data.get(DATA_LATEST)
+    body = {
+        "benchmark_version": INTEGRATION_VERSION,
+        "last_error": hass.data.get(DATA_LAST_ERROR),
+        "latest": _build_worldlist_payload(latest) if latest else None,
+    }
+    issue_body = "## Problem description\n\nPlease describe the issue here.\n\n## Diagnostic data\n\n```json\n" + json.dumps(body, ensure_ascii=False, indent=2) + "\n```\n"
+    return f"{GITHUB_ISSUES_URL}?" + urllib.parse.urlencode({"title": f"Benchmark issue {INTEGRATION_VERSION}", "body": issue_body, "labels": "bug"})
+
+
 def _cleanup_legacy_entities(hass: HomeAssistant, entry: ConfigEntry) -> None:
     registry = er.async_get(hass)
     removed = 0
@@ -135,6 +182,11 @@ def _cleanup_legacy_entities(hass: HomeAssistant, entry: ConfigEntry) -> None:
     for key in LEGACY_BUTTON_KEYS:
         entity_id = registry.async_get_entity_id("button", DOMAIN, f"{entry.entry_id}_{key}")
         if entity_id:
+            registry.async_remove(entity_id)
+            removed += 1
+
+    for entity_id in LEGACY_ENTITY_IDS:
+        if registry.async_get(entity_id):
             registry.async_remove(entity_id)
             removed += 1
 
@@ -153,8 +205,6 @@ def _append_history(path: str, entry: dict) -> list[dict]:
 
 
 def _export_csv(path: str, history: list[dict]) -> None:
-    import csv
-
     tmp = f"{path}.tmp"
     with open(tmp, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(
@@ -194,7 +244,9 @@ def _load_restart_time(hass: HomeAssistant) -> float | None:
 
 def _refresh_links(hass: HomeAssistant) -> None:
     hass.data[DATA_REPOSITORY_URL] = GITHUB_REPOSITORY_URL
-    hass.data[DATA_ISSUE_URL] = GITHUB_ISSUES_URL
+    hass.data[DATA_ISSUE_URL] = _build_support_issue_url(hass)
+    latest = hass.data.get(DATA_LATEST)
+    hass.data[DATA_RANKING_ISSUE_URL] = _build_ranking_issue_url(_build_worldlist_payload(latest)) if latest else None
 
 
 async def _notify(hass: HomeAssistant, title: str, message: str) -> None:
@@ -219,18 +271,18 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DATA_LAST_ERROR, None)
     hass.data.setdefault(DATA_ENTITIES, [])
     hass.data[DATA_DASHBOARD_YAML] = build_dashboard_yaml()
-    _refresh_links(hass)
 
     history = await hass.async_add_executor_job(read_json, hass.config.path(DATA_FILE), [])
     hass.data[DATA_LATEST] = history[-1] if isinstance(history, list) and history else None
+    _refresh_links(hass)
 
     async def welcome(_event) -> None:
         meta = await hass.async_add_executor_job(read_json, hass.config.path(META_FILE), {})
         if not isinstance(meta, dict):
             meta = {}
-        if not meta.get("welcome_shown_2_1_0"):
+        if not meta.get("welcome_shown_2_1_5"):
             await _notify(hass, "Home Assistant Real World Benchmark", "Willkommen beim Home Assistant Real World Benchmark.")
-            meta["welcome_shown_2_1_0"] = True
+            meta["welcome_shown_2_1_5"] = True
             await hass.async_add_executor_job(atomic_write_json, hass.config.path(META_FILE), meta)
 
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, welcome)
@@ -271,6 +323,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await _notify(hass, "Benchmark", "Restart-Benchmark vorbereitet. Home Assistant startet jetzt neu.")
             await hass.services.async_call("homeassistant", "restart", {}, blocking=True)
             return
+
         hass.data[DATA_RUNNING] = True
         hass.data[DATA_LAST_ERROR] = None
         await _set_progress(hass, 1, "Benchmark gestartet")
@@ -317,8 +370,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         export_path = hass.config.path(WORLDLIST_EXPORT_FILE)
         await hass.async_add_executor_job(atomic_write_json, export_path, payload)
         hass.data[DATA_LAST_WORLDLIST_EXPORT] = export_path
+        hass.data[DATA_RANKING_ISSUE_URL] = _build_ranking_issue_url(payload)
         _update_entities(hass)
         await _notify(hass, "Worldlist Export", f"Anonymer Worldlist-Export erstellt:\n{export_path}")
+
+    async def handle_create_ranking_issue(call: ServiceCall) -> None:
+        latest = hass.data.get(DATA_LATEST)
+        if not latest:
+            await _notify(hass, "Ranking Issue", "Es gibt noch kein Benchmark-Ergebnis. Starte zuerst einen Benchmark.")
+            return
+        payload = _build_worldlist_payload(latest)
+        url = _build_ranking_issue_url(payload)
+        hass.data[DATA_RANKING_ISSUE_URL] = url
+        _update_entities(hass)
+        await _notify(hass, "Ranking Issue", f"Öffne diesen Link, um dein anonymes Ergebnis für die Ranking-/Worldlist einzureichen:\n\n{url}")
 
     async def handle_setup_dashboard(call: ServiceCall) -> None:
         yaml = build_dashboard_yaml()
@@ -327,13 +392,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await _notify(hass, "Benchmark Dashboard YAML", f"```yaml\n{yaml}\n```")
 
     async def handle_create_issue(call: ServiceCall) -> None:
-        _refresh_links(hass)
+        url = _build_support_issue_url(hass)
+        hass.data[DATA_ISSUE_URL] = url
         _update_entities(hass)
-        await _notify(hass, "Benchmark Issue melden", f"GitHub Repository:\n{GITHUB_REPOSITORY_URL}\n\nNeues Issue erstellen:\n{GITHUB_ISSUES_URL}")
+        await _notify(hass, "Benchmark Issue melden", f"Öffne diesen Link, um ein Support-Issue zu erstellen:\n\n{url}")
 
     hass.services.async_register(DOMAIN, "start", handle_start, schema=vol.Schema({vol.Optional("profile", default="normal"): vol.In(PROFILES), vol.Optional("restart", default=False): bool}))
     hass.services.async_register(DOMAIN, "export", handle_export)
     hass.services.async_register(DOMAIN, "export_worldlist", handle_export_worldlist)
+    hass.services.async_register(DOMAIN, "create_ranking_issue", handle_create_ranking_issue)
     hass.services.async_register(DOMAIN, "setup_dashboard", handle_setup_dashboard)
     hass.services.async_register(DOMAIN, "create_issue", handle_create_issue)
 
@@ -344,7 +411,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        for service in ("start", "export", "export_worldlist", "setup_dashboard", "create_issue"):
+        for service in ("start", "export", "export_worldlist", "create_ranking_issue", "setup_dashboard", "create_issue"):
             if hass.services.has_service(DOMAIN, service):
                 hass.services.async_remove(DOMAIN, service)
         hass.data.pop(DATA_ENTITIES, None)
