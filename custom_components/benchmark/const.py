@@ -2,7 +2,7 @@
 
 DOMAIN = "benchmark"
 NAME = "Home Assistant Real World Benchmark"
-INTEGRATION_VERSION = "2.1.6"
+INTEGRATION_VERSION = "2.1.7"
 ATTRIBUTION = "Home Assistant Benchmark by Jarnsen"
 
 GITHUB_REPOSITORY = "Jarnsen/hacs-homeassistant-benchmark"
@@ -17,6 +17,7 @@ WORLDLIST_EXPORT_FILE = "benchmark_worldlist_export.json"
 RESTART_STATE_FILE = ".benchmark_restart.json"
 
 DATA_ENTITIES = f"{DOMAIN}_entities"
+DATA_HISTORY = f"{DOMAIN}_history"
 DATA_RUNNING = f"{DOMAIN}_running"
 DATA_PROGRESS = f"{DOMAIN}_progress"
 DATA_PROGRESS_MESSAGE = f"{DOMAIN}_progress_message"
