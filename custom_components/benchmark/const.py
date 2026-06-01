@@ -2,7 +2,7 @@
 
 DOMAIN = "benchmark"
 NAME = "Home Assistant Real World Benchmark"
-INTEGRATION_VERSION = "2.1.4"
+INTEGRATION_VERSION = "2.1.5"
 ATTRIBUTION = "Home Assistant Benchmark by Jarnsen"
 
 GITHUB_REPOSITORY = "Jarnsen/hacs-homeassistant-benchmark"
@@ -26,6 +26,7 @@ DATA_LAST_EXPORT = f"{DOMAIN}_last_export"
 DATA_LAST_WORLDLIST_EXPORT = f"{DOMAIN}_last_worldlist_export"
 DATA_DASHBOARD_YAML = f"{DOMAIN}_dashboard_yaml"
 DATA_ISSUE_URL = f"{DOMAIN}_issue_url"
+DATA_RANKING_ISSUE_URL = f"{DOMAIN}_ranking_issue_url"
 DATA_REPOSITORY_URL = f"{DOMAIN}_repository_url"
 
 MAX_HISTORY_ENTRIES = 50
