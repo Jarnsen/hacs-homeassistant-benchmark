@@ -2,7 +2,7 @@
 
 DOMAIN = "benchmark"
 NAME = "Home Assistant Real World Benchmark"
-INTEGRATION_VERSION = "2.1.5"
+INTEGRATION_VERSION = "2.1.6"
 ATTRIBUTION = "Home Assistant Benchmark by Jarnsen"
 
 GITHUB_REPOSITORY = "Jarnsen/hacs-homeassistant-benchmark"
