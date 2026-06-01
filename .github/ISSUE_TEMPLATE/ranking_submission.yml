@@ -1,0 +1,72 @@
+name: Ranking Submission
+description: Submit an anonymous Home Assistant Real World Benchmark result.
+title: "Ranking submission: "
+labels:
+  - ranking
+  - worldlist
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for submitting a Home Assistant Real World Benchmark result.
+        Please create the export in Home Assistant first with the Worldlist Export button.
+
+  - type: input
+    id: score
+    attributes:
+      label: Score
+      description: Your benchmark score.
+      placeholder: "4637"
+    validations:
+      required: true
+
+  - type: input
+    id: load_class
+    attributes:
+      label: Load class
+      description: small, medium, large or very_large.
+      placeholder: "medium"
+    validations:
+      required: true
+
+  - type: input
+    id: entity_count
+    attributes:
+      label: Entity count
+      description: Number of Home Assistant entities.
+      placeholder: "292"
+    validations:
+      required: true
+
+  - type: input
+    id: architecture
+    attributes:
+      label: Architecture
+      placeholder: "x86_64"
+    validations:
+      required: false
+
+  - type: input
+    id: cpu_cores
+    attributes:
+      label: CPU cores
+      placeholder: "4"
+    validations:
+      required: false
+
+  - type: input
+    id: ram
+    attributes:
+      label: RAM MB
+      placeholder: "7931"
+    validations:
+      required: false
+
+  - type: textarea
+    id: export_json
+    attributes:
+      label: Anonymous export JSON
+      description: Paste the content of /config/benchmark_worldlist_export.json here.
+      render: json
+    validations:
+      required: true
