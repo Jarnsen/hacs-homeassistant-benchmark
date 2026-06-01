@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import logging
 import os
 import time
@@ -17,6 +18,7 @@ from .const import (
     DATA_ISSUE_URL,
     DATA_LAST_ERROR,
     DATA_LAST_EXPORT,
+    DATA_LAST_WORLDLIST_EXPORT,
     DATA_LATEST,
     DATA_PROGRESS,
     DATA_PROGRESS_MESSAGE,
@@ -33,6 +35,7 @@ from .const import (
     PROFILES,
     RESTART_STATE_FILE,
     SCORE_WARNING_LIMIT,
+    WORLDLIST_EXPORT_FILE,
 )
 from .dashboard import build_dashboard_yaml
 from .engine import run_benchmark
@@ -42,39 +45,81 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BUTTON]
 
 LEGACY_SENSOR_KEYS: tuple[str, ...] = (
-    "install_method",
-    "ha_core",
-    "ha_frontend",
-    "ha_supervisor",
-    "architecture",
-    "storage_type",
-    "virtualization",
-    "system_user",
-    "boot_profile_s",
-    "ha_restart_s",
-    "ha_uptime_s",
-    "os_uptime_s",
-    "process_mem_mb",
-    "total_ram_mb",
-    "cpu_usage_percent",
-    "cpu_cores",
-    "process_threads",
-    "ha_entities",
-    "ha_devices",
-    "ha_integrations",
-    "state_tp_ops_s",
-    "cpu_loop_ops_s",
-    "cpu_stress_avg_freq_mhz",
-    "disk_write_mb_s",
-    "disk_read_mb_s",
-    "eventbus_p50_ms",
-    "eventbus_p95_ms",
-    "automation_p95_ms",
-    "service_call_avg_ms",
-    "service_call_p95_ms",
+    "install_method", "ha_core", "ha_frontend", "ha_supervisor", "architecture", "storage_type",
+    "virtualization", "system_user", "boot_profile_s", "ha_restart_s", "ha_uptime_s", "os_uptime_s",
+    "process_mem_mb", "total_ram_mb", "cpu_usage_percent", "cpu_cores", "process_threads",
+    "ha_entities", "ha_devices", "ha_integrations", "state_tp_ops_s", "cpu_loop_ops_s",
+    "cpu_stress_avg_freq_mhz", "disk_write_mb_s", "disk_read_mb_s", "eventbus_p50_ms",
+    "eventbus_p95_ms", "automation_p95_ms", "service_call_avg_ms", "service_call_p95_ms",
     "loop_latency_p95_ms",
 )
 LEGACY_BUTTON_KEYS: tuple[str, ...] = ("start_button", "restart_button")
+
+
+def _load_class(entity_count: int | None) -> str:
+    if entity_count is None:
+        return "unknown"
+    if entity_count < 250:
+        return "small"
+    if entity_count < 750:
+        return "medium"
+    if entity_count < 1500:
+        return "large"
+    return "very_large"
+
+
+def _build_worldlist_payload(latest: dict | None) -> dict:
+    latest = latest if isinstance(latest, dict) else {}
+    system = latest.get("system", {}) if isinstance(latest.get("system", {}), dict) else {}
+    results = latest.get("results", {}) if isinstance(latest.get("results", {}), dict) else {}
+    entity_count = system.get("entity_count")
+
+    return {
+        "schema": "ha_real_world_benchmark_worldlist_v1",
+        "exported_at": dt.datetime.now(dt.UTC).isoformat(),
+        "benchmark": {
+            "name": "Home Assistant Real World Benchmark",
+            "version": INTEGRATION_VERSION,
+            "profile": latest.get("profile"),
+            "timestamp": latest.get("timestamp"),
+            "score": results.get("benchmark_score"),
+            "scoring_formula": results.get("scoring_formula"),
+            "scoring_weights": results.get("scoring_weights"),
+            "scoring_normalized": results.get("scoring_normalized"),
+        },
+        "system_class": {
+            "architecture": system.get("architecture"),
+            "os": system.get("os"),
+            "python_version": system.get("python_version"),
+            "cpu_cores_physical": system.get("cpu_cores_physical"),
+            "cpu_cores_logical": system.get("cpu_cores_logical"),
+            "ram_total_mb": system.get("ram_total_mb"),
+            "disk_total_mb": system.get("disk_total_mb"),
+            "disk_free_mb": system.get("disk_free_mb"),
+        },
+        "home_assistant_load": {
+            "entity_count": entity_count,
+            "load_class": _load_class(entity_count if isinstance(entity_count, int) else None),
+            "process_memory_mb": system.get("process_memory_mb"),
+            "process_threads": system.get("process_threads"),
+        },
+        "results": {
+            "cpu_ops_s": results.get("cpu_ops_s"),
+            "disk_write_mb_s": results.get("disk_write_mb_s"),
+            "disk_read_mb_s": results.get("disk_read_mb_s"),
+            "template_render_ms": results.get("template_render_ms"),
+            "restart_time_s": results.get("restart_time_s"),
+            "disk_test_size_mb": results.get("disk_test_size_mb"),
+            "outlier_method": results.get("disk_outlier_method") or results.get("cpu_outlier_method"),
+        },
+        "privacy": {
+            "anonymous": True,
+            "excluded": [
+                "entity_ids", "device_names", "ip_addresses", "hostnames", "usernames", "tokens",
+                "config_path", "integration_config", "custom_entity_names",
+            ],
+        },
+    }
 
 
 def _cleanup_legacy_entities(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -119,18 +164,16 @@ def _export_csv(path: str, history: list[dict]) -> None:
         writer.writeheader()
         for entry in history:
             results = entry.get("results", {})
-            writer.writerow(
-                {
-                    "timestamp": entry.get("timestamp"),
-                    "profile": entry.get("profile"),
-                    "score": results.get("benchmark_score"),
-                    "cpu_ops_s": results.get("cpu_ops_s"),
-                    "disk_write_mb_s": results.get("disk_write_mb_s"),
-                    "disk_read_mb_s": results.get("disk_read_mb_s"),
-                    "template_render_ms": results.get("template_render_ms"),
-                    "restart_time_s": results.get("restart_time_s"),
-                }
-            )
+            writer.writerow({
+                "timestamp": entry.get("timestamp"),
+                "profile": entry.get("profile"),
+                "score": results.get("benchmark_score"),
+                "cpu_ops_s": results.get("cpu_ops_s"),
+                "disk_write_mb_s": results.get("disk_write_mb_s"),
+                "disk_read_mb_s": results.get("disk_read_mb_s"),
+                "template_render_ms": results.get("template_render_ms"),
+                "restart_time_s": results.get("restart_time_s"),
+            })
     os.replace(tmp, path)
 
 
@@ -155,12 +198,7 @@ def _refresh_links(hass: HomeAssistant) -> None:
 
 
 async def _notify(hass: HomeAssistant, title: str, message: str) -> None:
-    await hass.services.async_call(
-        "persistent_notification",
-        "create",
-        {"title": title, "message": message},
-        blocking=False,
-    )
+    await hass.services.async_call("persistent_notification", "create", {"title": title, "message": message}, blocking=False)
 
 
 def _update_entities(hass: HomeAssistant) -> None:
@@ -191,11 +229,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         if not isinstance(meta, dict):
             meta = {}
         if not meta.get("welcome_shown_2_1_0"):
-            await _notify(
-                hass,
-                "Home Assistant Benchmark",
-                "Willkommen bei Home Assistant Benchmark 2.1.0. Starte den Benchmark über den Button oder den Service benchmark.start.",
-            )
+            await _notify(hass, "Home Assistant Real World Benchmark", "Willkommen beim Home Assistant Real World Benchmark.")
             meta["welcome_shown_2_1_0"] = True
             await hass.async_add_executor_job(atomic_write_json, hass.config.path(META_FILE), meta)
 
@@ -219,7 +253,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         identifiers={(DOMAIN, entry.entry_id)},
         name="Benchmark",
         manufacturer="Jarnsen",
-        model="Home Assistant Benchmark",
+        model="Home Assistant Real World Benchmark",
         sw_version=INTEGRATION_VERSION,
     )
     hass.data[DOMAIN]["device"] = device
@@ -227,35 +261,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def handle_start(call: ServiceCall) -> None:
         profile = call.data.get("profile", "normal")
         restart = call.data.get("restart", False)
-
         if profile not in PROFILES:
             raise vol.Invalid(f"Unknown profile: {profile}")
-
         if hass.data.get(DATA_RUNNING):
             await _notify(hass, "Benchmark", "Es läuft bereits ein Benchmark.")
             return
-
         if restart:
-            await hass.async_add_executor_job(
-                atomic_write_json,
-                hass.config.path(RESTART_STATE_FILE),
-                {"state": "pending", "started_at": time.time(), "profile": profile},
-            )
+            await hass.async_add_executor_job(atomic_write_json, hass.config.path(RESTART_STATE_FILE), {"state": "pending", "started_at": time.time(), "profile": profile})
             await _notify(hass, "Benchmark", "Restart-Benchmark vorbereitet. Home Assistant startet jetzt neu.")
             await hass.services.async_call("homeassistant", "restart", {}, blocking=True)
             return
-
         hass.data[DATA_RUNNING] = True
         hass.data[DATA_LAST_ERROR] = None
         await _set_progress(hass, 1, "Benchmark gestartet")
-
         try:
             restart_time = await hass.async_add_executor_job(_load_restart_time, hass)
             result = await run_benchmark(hass, profile, restart_time, lambda value, message: _set_progress(hass, value, message))
             history = await hass.async_add_executor_job(_append_history, hass.config.path(DATA_FILE), result)
             hass.data[DATA_LATEST] = result
             await _set_progress(hass, 100, "Benchmark abgeschlossen")
-
             score = result.get("results", {}).get("benchmark_score")
             if isinstance(score, int) and score < SCORE_WARNING_LIMIT:
                 await _notify(hass, "Benchmark Warnung", f"Score {score} liegt unter {SCORE_WARNING_LIMIT}.")
@@ -284,6 +308,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _update_entities(hass)
         await _notify(hass, "Benchmark Export", f"Export erstellt:\nJSON: {json_path}\nCSV: {csv_path}")
 
+    async def handle_export_worldlist(call: ServiceCall) -> None:
+        latest = hass.data.get(DATA_LATEST)
+        if not latest:
+            await _notify(hass, "Worldlist Export", "Es gibt noch kein Benchmark-Ergebnis. Starte zuerst einen Benchmark.")
+            return
+        payload = _build_worldlist_payload(latest)
+        export_path = hass.config.path(WORLDLIST_EXPORT_FILE)
+        await hass.async_add_executor_job(atomic_write_json, export_path, payload)
+        hass.data[DATA_LAST_WORLDLIST_EXPORT] = export_path
+        _update_entities(hass)
+        await _notify(hass, "Worldlist Export", f"Anonymer Worldlist-Export erstellt:\n{export_path}")
+
     async def handle_setup_dashboard(call: ServiceCall) -> None:
         yaml = build_dashboard_yaml()
         hass.data[DATA_DASHBOARD_YAML] = yaml
@@ -293,19 +329,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def handle_create_issue(call: ServiceCall) -> None:
         _refresh_links(hass)
         _update_entities(hass)
-        await _notify(
-            hass,
-            "Benchmark Issue melden",
-            f"GitHub Repository:\n{GITHUB_REPOSITORY_URL}\n\nNeues Issue erstellen:\n{GITHUB_ISSUES_URL}",
-        )
+        await _notify(hass, "Benchmark Issue melden", f"GitHub Repository:\n{GITHUB_REPOSITORY_URL}\n\nNeues Issue erstellen:\n{GITHUB_ISSUES_URL}")
 
-    hass.services.async_register(
-        DOMAIN,
-        "start",
-        handle_start,
-        schema=vol.Schema({vol.Optional("profile", default="normal"): vol.In(PROFILES), vol.Optional("restart", default=False): bool}),
-    )
+    hass.services.async_register(DOMAIN, "start", handle_start, schema=vol.Schema({vol.Optional("profile", default="normal"): vol.In(PROFILES), vol.Optional("restart", default=False): bool}))
     hass.services.async_register(DOMAIN, "export", handle_export)
+    hass.services.async_register(DOMAIN, "export_worldlist", handle_export_worldlist)
     hass.services.async_register(DOMAIN, "setup_dashboard", handle_setup_dashboard)
     hass.services.async_register(DOMAIN, "create_issue", handle_create_issue)
 
@@ -316,7 +344,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        for service in ("start", "export", "setup_dashboard", "create_issue"):
+        for service in ("start", "export", "export_worldlist", "setup_dashboard", "create_issue"):
             if hass.services.has_service(DOMAIN, service):
                 hass.services.async_remove(DOMAIN, service)
         hass.data.pop(DATA_ENTITIES, None)
