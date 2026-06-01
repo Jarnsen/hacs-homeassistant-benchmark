@@ -1,6 +1,6 @@
 start:
-  name: Start Benchmark
-  description: Runs the Home Assistant benchmark.
+  name: Start Real World Benchmark
+  description: Runs the benchmark.
   fields:
     profile:
       name: Profile
@@ -23,12 +23,17 @@ start:
 
 export:
   name: Export Benchmark
-  description: Export benchmark results to JSON and CSV.
+  description: Export full local benchmark results.
   fields: {}
 
 export_worldlist:
   name: Export Worldlist
-  description: Export latest benchmark result for comparison.
+  description: Export the latest benchmark result for comparison.
+  fields: {}
+
+create_ranking_issue:
+  name: Create Ranking Issue
+  description: Create a prefilled GitHub issue for ranking submission.
   fields: {}
 
 setup_dashboard:
@@ -38,5 +43,5 @@ setup_dashboard:
 
 create_issue:
   name: Create GitHub Issue
-  description: Shows links to the GitHub repository and issue tracker.
+  description: Create a prefilled GitHub support issue.
   fields: {}
