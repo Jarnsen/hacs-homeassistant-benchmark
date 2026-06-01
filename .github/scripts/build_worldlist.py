@@ -4,6 +4,7 @@ import json
 import os
 import re
 import urllib.request
+from datetime import UTC, datetime
 from pathlib import Path
 
 REPO = os.environ["GITHUB_REPOSITORY"]
@@ -127,6 +128,7 @@ def entry_from_issue(issue: dict) -> dict | None:
 
 
 def main() -> None:
+    updated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     issues = [issue for issue in request_json(API) if "pull_request" not in issue]
     entries = [entry for issue in issues if (entry := entry_from_issue(issue))]
     entries.sort(key=lambda item: item["score"], reverse=True)
@@ -135,7 +137,7 @@ def main() -> None:
 
     output = {
         "schema": "ha_real_world_benchmark_public_worldlist_v1",
-        "updated_at": os.environ.get("GITHUB_RUN_ID"),
+        "updated_at": updated_at,
         "source": "github_issues",
         "issue_label": "ranking",
         "count": len(entries),
@@ -149,6 +151,7 @@ def main() -> None:
     lines = [
         "# Home Assistant Real World Benchmark Worldlist",
         "",
+        f"Updated: {updated_at}",
         f"Entries: {len(entries)}",
         "",
         "| Rank | Score | Load Class | Entities | Architecture | CPU Cores | RAM MB | Issue |",
