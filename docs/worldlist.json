@@ -1,6 +1,8 @@
 {
   "schema": "ha_real_world_benchmark_public_worldlist_v1",
-  "updated_at": null,
-  "description": "Public Home Assistant Real World Benchmark ranking data. This file is prepared for future automated ranking generation.",
+  "updated_at": "26761544093",
+  "source": "github_issues",
+  "issue_label": "ranking",
+  "count": 0,
   "entries": []
 }
