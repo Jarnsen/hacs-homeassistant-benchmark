@@ -1,8 +1,11 @@
-# Home Assistant Real World Benchmark Worldlist
+# Home Assistant Performance Benchmark Worldlist
 
-Entries: 0
+Validated entries: 0
 
-| Rank | Score | Load Class | Entities | Architecture | CPU Cores | RAM MB | Issue |
-|---:|---:|---|---:|---|---:|---:|---|
+Scores are recalculated by GitHub from protocol v3 measurements. Hardware is
+metadata only and never contributes directly to the score.
 
-This file is generated automatically from open GitHub issues labeled `ranking`.
+| Rank | HA Score | Core | Fluidity | Confidence | HA Version | Entities | System | Architecture | Issue |
+|---:|---:|---:|---:|---|---|---:|---|---|---|
+
+Only open issues labeled `ranking` with a valid standard-profile v3 payload are included.

@@ -1,47 +1,56 @@
 start:
-  name: Start Real World Benchmark
-  description: Runs the benchmark.
+  name: Start benchmark
+  description: Measure Home Assistant responsiveness without restarting.
   fields:
     profile:
       name: Profile
-      description: Benchmark profile to use.
+      description: Fixed measurement profile. Standard is required for ranking.
       required: false
-      default: normal
       selector:
         select:
           options:
-            - light
-            - normal
-            - heavy
+            - quick
+            - standard
+            - extended
     restart:
-      name: Restart Benchmark
-      description: Restart Home Assistant and measure restart time.
+      name: Restart first
+      description: Restart Home Assistant and continue the benchmark automatically.
       required: false
       default: false
       selector:
         boolean:
 
+restart_and_run:
+  name: Restart and run benchmark
+  description: Restart Home Assistant, measure recovery time, and continue automatically.
+  fields:
+    profile:
+      name: Profile
+      description: Fixed measurement profile to run after startup.
+      required: false
+      selector:
+        select:
+          options:
+            - quick
+            - standard
+            - extended
+
 export:
-  name: Export Benchmark
-  description: Export full local benchmark results.
-  fields: {}
+  name: Export benchmark history
+  description: Export v3 history as JSON and CSV in the Home Assistant config directory.
 
 export_worldlist:
-  name: Export Worldlist
-  description: Export the latest benchmark result for comparison.
-  fields: {}
+  name: Export worldlist result
+  description: Export the latest standard result as a privacy-reduced comparison payload.
 
 create_ranking_issue:
-  name: Create Ranking Issue
-  description: Create a prefilled GitHub issue for ranking submission.
-  fields: {}
+  name: Prepare ranking submission
+  description: Export the latest standard result and show the GitHub ranking form.
 
 setup_dashboard:
-  name: Setup Dashboard
-  description: Generate Lovelace dashboard configuration.
-  fields: {}
+  name: Show dashboard YAML
+  description: Show ready-to-copy dashboard YAML in a persistent notification.
 
 create_issue:
-  name: Create GitHub Issue
-  description: Create a prefilled GitHub support issue.
-  fields: {}
+  name: Report a problem
+  description: Show a privacy-safe prefilled GitHub support issue.

@@ -1,5 +1,5 @@
-name: Ranking Submission
-description: Submit an anonymous Home Assistant Real World Benchmark result.
+name: Ranking submission
+description: Submit an anonymous standard-profile v3 benchmark result.
 title: "Ranking submission: "
 labels:
   - ranking
@@ -8,65 +8,29 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for submitting a Home Assistant Real World Benchmark result.
-        Please create the export in Home Assistant first with the Worldlist Export button.
-
-  - type: input
-    id: score
-    attributes:
-      label: Score
-      description: Your benchmark score.
-      placeholder: "4637"
-    validations:
-      required: true
-
-  - type: input
-    id: load_class
-    attributes:
-      label: Load class
-      description: small, medium, large or very_large.
-      placeholder: "medium"
-    validations:
-      required: true
-
-  - type: input
-    id: entity_count
-    attributes:
-      label: Entity count
-      description: Number of Home Assistant entities.
-      placeholder: "292"
-    validations:
-      required: true
-
-  - type: input
-    id: architecture
-    attributes:
-      label: Architecture
-      placeholder: "x86_64"
-    validations:
-      required: false
-
-  - type: input
-    id: cpu_cores
-    attributes:
-      label: CPU cores
-      placeholder: "4"
-    validations:
-      required: false
-
-  - type: input
-    id: ram
-    attributes:
-      label: RAM MB
-      placeholder: "7931"
-    validations:
-      required: false
+        Create the payload with **Export ranking payload** in Home Assistant.
+        GitHub recalculates every score from the submitted measurements. Hardware
+        information is displayed only as comparison metadata.
 
   - type: textarea
-    id: export_json
+    id: benchmark_json
     attributes:
-      label: Anonymous export JSON
-      description: Paste the content of /config/benchmark_worldlist_export.json here.
+      label: Anonymous benchmark JSON
+      description: Paste the complete content of /config/benchmark_worldlist_export.json.
       render: json
+      placeholder: |
+        {
+          "schema": "ha_homeassistant_performance_result_v3",
+          "protocol_version": "3.0.0",
+          "profile": "standard"
+        }
     validations:
       required: true
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy confirmation
+      options:
+        - label: I reviewed the payload and want to publish these anonymous measurements and system metadata.
+          required: true

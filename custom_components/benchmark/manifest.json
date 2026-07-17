@@ -1,16 +1,18 @@
 {
   "domain": "benchmark",
-  "name": "Home Assistant Real World Benchmark",
-  "version": "2.1.7",
-  "documentation": "https://github.com/Jarnsen/hacs-homeassistant-benchmark",
-  "issue_tracker": "https://github.com/Jarnsen/hacs-homeassistant-benchmark/issues",
-  "dependencies": [],
+  "name": "Home Assistant Performance Benchmark",
   "codeowners": [
     "@Jarnsen"
   ],
-  "requirements": [
-    "psutil>=6.1.0"
-  ],
   "config_flow": true,
-  "iot_class": "local_polling"
+  "dependencies": [
+    "persistent_notification"
+  ],
+  "documentation": "https://github.com/Jarnsen/hacs-homeassistant-benchmark",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/Jarnsen/hacs-homeassistant-benchmark/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "3.0.0"
 }

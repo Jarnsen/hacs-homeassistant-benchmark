@@ -1,0 +1,5 @@
+{
+  "name": "Home Assistant Performance Benchmark",
+  "homeassistant": "2025.12.0",
+  "render_readme": true
+}

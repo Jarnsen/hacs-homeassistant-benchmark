@@ -1,7 +1,26 @@
 {
-  "schema": "ha_real_world_benchmark_public_worldlist_v1",
-  "updated_at": "26761544093",
-  "source": "github_issues",
+  "schema": "ha_homeassistant_performance_worldlist_v3",
+  "protocol_version": "3.0.0",
+  "score_version": "ha_score_v3",
+  "protocol": {
+    "timer_interval_ms": 20,
+    "sample_counts": {
+      "event_loop_idle": 300,
+      "event_loop_loaded": 300,
+      "state_machine": 300,
+      "event_bus": 300,
+      "service_calls": 200,
+      "template_render": 300
+    },
+    "controlled_load": {
+      "batch_size": 5,
+      "batch_period_ms": 20,
+      "target_service_calls_s": 250,
+      "state_updates": false
+    }
+  },
+  "updated_at": null,
+  "source": "validated_github_issues",
   "issue_label": "ranking",
   "count": 0,
   "entries": []

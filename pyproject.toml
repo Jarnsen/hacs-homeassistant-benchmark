@@ -1,0 +1,66 @@
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers --cov=custom_components.benchmark --cov-report=term-missing"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["custom_components/benchmark"]
+
+[tool.coverage.report]
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]
+fail_under = 100
+show_missing = true
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = [
+  "A",
+  "ASYNC",
+  "B",
+  "C4",
+  "DTZ",
+  "E",
+  "F",
+  "FLY",
+  "FURB",
+  "G",
+  "I",
+  "ICN",
+  "LOG",
+  "N",
+  "PERF",
+  "PIE",
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  "PTH",
+  "RUF",
+  "SIM",
+  "SLOT",
+  "T20",
+  "TRY",
+  "UP",
+  "W",
+]
+ignore = [
+  "PLR0913",
+  "PLR2004",
+  "TRY003",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components.benchmark"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

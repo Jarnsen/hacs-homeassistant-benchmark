@@ -1,195 +1,146 @@
-# Home Assistant Benchmark
+# Home Assistant Performance Benchmark
 
 <p align="center">
-  <img src="https://brands.home-assistant.io/_/homeassistant/logo.png" alt="Home Assistant" width="120">
+  <img src="https://brands.home-assistant.io/_/homeassistant/logo.png" alt="Home Assistant" width="110">
 </p>
 
 <p align="center">
-  <strong>Measure. Compare. Improve.</strong><br>
-  A clean and practical benchmark integration for Home Assistant.
+  <strong>Measure Home Assistant, not a synthetic hardware workload.</strong>
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-2.1.0-blue">
-  <img alt="Home Assistant" src="https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5">
+  <a href="https://github.com/Jarnsen/hacs-homeassistant-benchmark/releases"><img alt="Release" src="https://img.shields.io/github/v/release/Jarnsen/hacs-homeassistant-benchmark"></a>
+  <a href="https://github.com/Jarnsen/hacs-homeassistant-benchmark/actions"><img alt="Validation" src="https://github.com/Jarnsen/hacs-homeassistant-benchmark/actions/workflows/validate.yml/badge.svg"></a>
+  <img alt="Home Assistant" src="https://img.shields.io/badge/Home%20Assistant-2025.12%2B-41BDF5">
   <img alt="HACS" src="https://img.shields.io/badge/HACS-Custom-orange">
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.12%2B-yellow">
-  <img alt="Status" src="https://img.shields.io/badge/status-beta-important">
+  <img alt="License" src="https://img.shields.io/github/license/Jarnsen/hacs-homeassistant-benchmark">
 </p>
 
----
+[Deutsch](README.de.md)
 
-## What is Home Assistant Benchmark?
+Home Assistant Performance Benchmark is a local custom integration that measures
+how responsive and fluid **Home Assistant itself** is. Version 3 measures the
+event loop, state machine, event bus, service dispatcher, and template engine
+using a fixed protocol.
 
-**Home Assistant Benchmark** is a custom integration that measures the real-world performance of your Home Assistant instance and exposes the results as sensors.
+CPU model, RAM, architecture, installation type, and instance size are collected
+only as comparison metadata. They do not directly add points to the score.
 
-It is designed to help you compare different systems such as:
+## What version 3 measures
 
-- Raspberry Pi
-- Home Assistant Green
-- Home Assistant Yellow
-- Mini PCs / NUCs
-- Virtual machines
-- Docker / Container installations
-- Proxmox setups
-
-The integration creates a unified **Benchmark Score from 0 to 10,000** and also shows the individual results for CPU, disk, template rendering and restart time.
-
----
-
-## Preview
-
-> Dashboard example is included in `lovelace/example_dashboard.yaml`.
-
-```yaml
-sensor.benchmark_score
-sensor.benchmark_progress
-sensor.benchmark_cpu_performance
-sensor.benchmark_disk_write
-sensor.benchmark_disk_read
-sensor.benchmark_template_render
-sensor.benchmark_restart_time
-```
-
-<p align="center">
-  <img src="https://www.home-assistant.io/images/screenshots/lovelace.png" alt="Example Lovelace Dashboard" width="720">
-</p>
-
----
-
-## Highlights
-
-| Feature | Description |
+| Measurement | Question answered |
 |---|---|
-| Benchmark Score | One clear score from 0 to 10,000 |
-| Profiles | `light`, `normal`, `heavy` |
-| CPU Benchmark | Measures calculation throughput |
-| Disk Benchmark | Measures read and write speed in MB/s |
-| Template Benchmark | Measures Home Assistant template rendering speed |
-| Restart Benchmark | Measures real Home Assistant restart duration |
-| Progress Sensor | Live progress with ASCII progress bar attribute |
-| Export | JSON and CSV export service |
-| Dashboard Helper | Service that outputs ready-to-copy Lovelace YAML |
-| Diagnostics | Includes diagnostic data for troubleshooting |
+| Idle event-loop P95/P99 | Does Home Assistant remain responsive during normal background activity? |
+| Loaded event-loop P95/P99 | Does Home Assistant develop visible scheduling lag under a controlled HA workload? |
+| State-machine P95 | How quickly does an internal state update reach a `state_changed` listener? |
+| Event-bus P95 | How quickly does a Home Assistant event reach its listener? |
+| Service-call P95 | How quickly does Home Assistant validate and dispatch an internal service call? |
+| Template-render P95 | How quickly are warmed, state-aware Home Assistant templates rendered? |
+| Variability | Are results stable, or dominated by jitter and long-tail stalls? |
 
----
+The test does **not** run a synthetic CPU loop or disk throughput benchmark.
+Restart recovery time is available as a separate diagnostic value and never
+contributes directly to the main score.
 
-## Benchmark Profiles
+## Scores
 
-| Profile | Use case | Runtime | Intensity |
-|---|---|---:|---:|
-| `light` | Quick check | Short | Low |
-| `normal` | Recommended default | Medium | Balanced |
-| `heavy` | More stable comparison | Longer | High |
+Version 3 exposes three scores from 0 to 10,000:
 
-Recommendation: Use **normal** for regular tests and **heavy** when comparing different hardware.
+- **HA Core Score** — controlled Home Assistant pipelines and their stability.
+- **Fluidity Score** — event-loop latency, long-tail stalls, and slowdown under
+  a controlled HA workload.
+- **HA Performance Score** — a geometric combination of 70% Core and 30%
+  Fluidity.
 
----
+P95 is the primary latency statistic. P99 and variability penalize systems that
+look fast on average but regularly stutter. Values are normalized
+logarithmically, and a weighted geometric mean prevents one very weak subsystem
+from being completely hidden by unrelated strong results.
 
-## Sensors
+The formula is versioned as `ha_score_v3`. Public rankings never trust a
+submitted score: the GitHub workflow imports the integration's scoring module
+and recalculates the score from the submitted measurements.
 
-After setup, the integration exposes sensors like:
+Component weights:
 
-| Entity | Description |
-|---|---|
-| `sensor.benchmark_score` | Main benchmark score |
-| `sensor.benchmark_progress` | Current benchmark progress |
-| `sensor.benchmark_status` | Running / idle |
-| `sensor.benchmark_active_profile` | Last used benchmark profile |
-| `sensor.benchmark_cpu_performance` | CPU operations per second |
-| `sensor.benchmark_disk_write` | Disk write speed |
-| `sensor.benchmark_disk_read` | Disk read speed |
-| `sensor.benchmark_template_render` | Template rendering time |
-| `sensor.benchmark_restart_time` | Measured restart time |
-| `sensor.benchmark_last_run` | Last benchmark timestamp |
+| HA Core Score | Weight | Fluidity Score | Weight |
+|---|---:|---|---:|
+| Loaded event-loop P95 | 30% | Idle event-loop P95 | 40% |
+| State-machine P95 | 25% | Idle event-loop P99 | 25% |
+| Event-bus P95 | 15% | Loaded event-loop P99 | 20% |
+| Service-call P95 | 15% | Controlled-load slowdown | 15% |
+| Template-render P95 | 10% |  |  |
+| Stability | 5% |  |  |
 
-The main score sensor also contains detailed attributes:
+The normalization reference values are part of the versioned implementation in
+[`scoring.py`](custom_components/benchmark/scoring.py). Changing weights,
+reference values, sample counts, or workload requires a new score or protocol
+version.
 
-- scoring formula
-- scoring weights
-- normalized scoring values
-- raw benchmark results
-- system information
-- dashboard YAML
-- last export paths
+### Score interpretation
 
----
+These bands are useful for reading one installation over time. Real comparative
+calibration will improve as more protocol v3 results are collected.
 
-## Services
+| Score | Interpretation |
+|---:|---|
+| 0–3,999 | Frequent or severe HA latency |
+| 4,000–6,499 | Usable, with measurable delay or jitter |
+| 6,500–8,499 | Responsive |
+| 8,500–10,000 | Very responsive and consistent |
 
-### Start Benchmark
+Only results produced by the same protocol and score version are directly
+comparable.
 
-```yaml
-service: benchmark.start
-data:
-  profile: normal
-  restart: false
-```
+## Profiles
 
-Available profiles:
+| Profile | Purpose | Public ranking |
+|---|---|---|
+| `quick` | Fast health check with fewer samples | No |
+| `standard` | Reproducible HA comparison across systems | Yes |
+| `extended` | More samples for local diagnostics | No |
 
-```yaml
-light
-normal
-heavy
-```
+The fixed protocol is:
 
-### Restart Benchmark
+| Profile | Idle loop | Loaded loop | State | Event | Service | Template | Timing floor |
+|---|---:|---:|---:|---:|---:|---:|---|
+| `quick` | 60 | 60 | 40 | 40 | 30 | 30 | at least 1.2 seconds |
+| `standard` | 300 | 300 | 300 | 300 | 200 | 300 | at least 12 seconds |
+| `extended` | 600 | 600 | 600 | 600 | 400 | 600 | at least 24 seconds |
 
-```yaml
-service: benchmark.start
-data:
-  profile: normal
-  restart: true
-```
+The standard and extended profiles sample event-loop lag every 20 ms. During
+the loaded phase, every system receives the same target load: five internal HA
+service calls every 20 ms, or 250 calls per second. This avoids making the
+workload itself dependent on how fast the host happens to be.
 
-This prepares the restart measurement and restarts Home Assistant.
+The complete run can take substantially longer than the timing floor on a busy
+or slow installation. Duration is recorded for diagnostics but does not
+directly add or remove score points.
 
-### Export Results
-
-```yaml
-service: benchmark.export
-```
-
-Creates:
-
-```text
-/config/benchmark_export.json
-/config/benchmark_export.csv
-```
-
-### Generate Dashboard YAML
-
-```yaml
-service: benchmark.setup_dashboard
-```
-
-This shows a ready-to-copy Lovelace dashboard configuration as a persistent notification.
-
----
+The integration still accepts the version 2 aliases `light`, `normal`, and
+`heavy` in existing automations. They map to `quick`, `standard`, and
+`extended`.
 
 ## Installation
 
 ### HACS custom repository
 
+[![Open your Home Assistant instance and add this repository to HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Jarnsen&repository=hacs-homeassistant-benchmark&category=integration)
+
+Or add it manually:
+
 1. Open HACS.
-2. Go to **Integrations**.
-3. Open the three-dot menu.
-4. Select **Custom repositories**.
-5. Add this repository:
-
-```text
-https://github.com/Jarnsen/hacs-homeassistant-benchmark
-```
-
-6. Category: **Integration**
-7. Install **Home Assistant Benchmark**
-8. Restart Home Assistant.
-9. Add the integration from **Settings → Devices & services**.
+2. Select **Integrations**.
+3. Open **Custom repositories**.
+4. Add `https://github.com/Jarnsen/hacs-homeassistant-benchmark`.
+5. Select category **Integration**.
+6. Install **Home Assistant Performance Benchmark**.
+7. Restart Home Assistant.
+8. Add the integration under **Settings → Devices & services**.
 
 ### Manual installation
 
-Copy the folder:
+Copy:
 
 ```text
 custom_components/benchmark
@@ -201,90 +152,212 @@ to:
 /config/custom_components/benchmark
 ```
 
-Then restart Home Assistant.
+Restart Home Assistant and add the integration from the UI.
 
----
+## Running a benchmark
+
+The recommended method is the **Start standard benchmark** button on the
+integration device page.
+
+The equivalent action is:
+
+```yaml
+action: benchmark.start
+data:
+  profile: standard
+```
+
+For an extended diagnostic run:
+
+```yaml
+action: benchmark.start
+data:
+  profile: extended
+```
+
+Avoid intentionally starting backups, database maintenance, large downloads, or
+other exceptional workloads during a comparison run. Normal integrations and
+automations should remain active: their effect is part of the real Home
+Assistant fluidity measurement.
+
+## Restart benchmark
+
+Restart time is deliberately separate from the performance score.
+
+```yaml
+action: benchmark.restart_and_run
+data:
+  profile: standard
+```
+
+The request is saved in Home Assistant storage before restart. After Home
+Assistant reports startup completion, the benchmark resumes automatically and
+stores the recovery duration with the result. Stale requests older than 15
+minutes are discarded safely.
+
+## Entities
+
+Core entities include:
+
+```text
+sensor.benchmark_score
+sensor.benchmark_core_score
+sensor.benchmark_fluidity_score
+sensor.benchmark_confidence
+sensor.benchmark_event_loop_idle
+sensor.benchmark_event_loop_loaded
+sensor.benchmark_state_machine
+sensor.benchmark_event_bus
+sensor.benchmark_service_calls
+sensor.benchmark_template_render
+sensor.benchmark_restart_time
+sensor.benchmark_progress
+sensor.benchmark_status
+sensor.benchmark_last_run
+button.benchmark_start_standard
+```
+
+Hardware and instance-size sensors are diagnostic entities and disabled by
+default. They are useful for explaining differences, but never contribute
+directly to the score.
+
+Large result documents are not attached to sensor states, which avoids
+unnecessary Recorder database growth. Full history is stored in Home Assistant's
+managed `.storage` system.
+
+## Actions
+
+| Action | Purpose |
+|---|---|
+| `benchmark.start` | Run a selected profile; supports the legacy `restart` flag |
+| `benchmark.restart_and_run` | Restart and continue automatically |
+| `benchmark.export` | Export v3 history as JSON and CSV |
+| `benchmark.export_worldlist` | Export the latest rankable standard result |
+| `benchmark.create_ranking_issue` | Prepare the export and show the ranking form |
+| `benchmark.setup_dashboard` | Show ready-to-copy dashboard YAML |
+| `benchmark.create_issue` | Show a privacy-safe support issue link |
+
+Exports are written to:
+
+```text
+/config/benchmark_export.json
+/config/benchmark_export.csv
+/config/benchmark_worldlist_export.json
+```
 
 ## Dashboard
 
-A dashboard example is included here:
+A built-in-card dashboard is available at:
 
 ```text
 lovelace/example_dashboard.yaml
 ```
 
-It uses standard Home Assistant cards and can optionally be combined with:
+You can also press **Show dashboard YAML** or call
+`benchmark.setup_dashboard`.
 
-- `custom:button-card`
-- `custom:mini-graph-card`
+## Public worldlist
 
----
+1. Run the `standard` profile.
+2. Press **Export ranking payload**.
+3. Press **Prepare ranking submission**.
+4. Review and paste `/config/benchmark_worldlist_export.json` into the issue
+   form.
 
-## Scoring
+The public builder:
 
-The score is calculated from weighted normalized values:
+- accepts only protocol v3 standard results;
+- validates required sample counts and finite latency values;
+- rejects unsupported protocol or score versions;
+- deduplicates result IDs;
+- recalculates all scores server-side;
+- safely escapes public table metadata;
+- includes only open issues with the `ranking` label.
 
-```text
-score = 10000 * (0.35*cpu + 0.20*disk_write + 0.20*disk_read + 0.15*template + 0.10*restart)
+The generated data is available in
+[`docs/worldlist.json`](docs/worldlist.json) and
+[`docs/worldlist.md`](docs/worldlist.md).
+
+## Privacy
+
+Everything runs locally. No result is uploaded automatically.
+
+The optional worldlist export excludes:
+
+- entity IDs and custom names;
+- device names;
+- IP addresses and hostnames;
+- usernames and tokens;
+- configuration paths;
+- integration configuration.
+
+It includes latency summaries and secondary comparison metadata such as Home
+Assistant version, installation type, entity count, architecture, logical CPU
+count, and total RAM. Always review the JSON before publishing it.
+
+The payload itself contains no Home Assistant account identity, but a ranking
+submission is a public GitHub issue and is therefore linked to the GitHub
+account that submits it.
+
+## Migration from version 2
+
+- The version 2 hardware-oriented score is not mixed with version 3 history.
+- Existing v2 history is preserved as `legacy_v2_history` in full exports.
+- Old hidden JSON files are migrated once into Home Assistant storage and then
+  removed.
+- Removed CPU/disk entities are cleaned from the entity registry.
+- Existing profile aliases and the `benchmark.start` restart flag remain
+  compatible.
+
+Version 3 scores are intentionally not comparable with version 2 scores.
+
+## Development and validation
+
+The repository includes:
+
+- pure unit tests for statistics, scoring, validation, and worldlist security;
+- Home Assistant config-flow and setup tests;
+- Ruff linting and formatting checks;
+- pytest statement and branch coverage with a mandatory 100% threshold;
+- Hassfest validation;
+- HACS repository validation;
+- JSON and translation consistency checks.
+
+Run locally:
+
+```bash
+# Python 3.13 or newer
+python -m pip install -r requirements_test.txt
+python -m ruff check .
+python -m ruff format --check .
+python -m pytest
 ```
 
-The formula is also exposed as an attribute of `sensor.benchmark_score`.
+The test suite covers normal operation, cancellation, concurrent starts,
+restart continuation, storage migration, export failures, entity state,
+platform fallbacks, malformed measurements, and every registered action. CI
+publishes a machine-readable coverage report for every supported Home Assistant
+test generation.
 
-| Score | Meaning |
-|---:|---|
-| 0 - 3,499 | Slow / warning range |
-| 3,500 - 5,999 | Usable |
-| 6,000 - 7,999 | Good |
-| 8,000 - 10,000 | Very fast |
+## Limitations
 
----
+- A benchmark is a controlled sample, not a guarantee about every automation or
+  third-party integration.
+- Normal background activity is intentionally visible in the Fluidity Score.
+- P95/P99 results can vary; compare several standard runs and pay attention to
+  the confidence sensor.
+- Database-specific Recorder performance is not part of score v3. It may be
+  added later as a separate, versioned subscore.
+- The state-machine test creates short-lived internal state changes. They are
+  removed after the run, but Recorder may retain their historical events.
+- Worldlist validation detects malformed payloads and recalculates scores, but
+  it cannot cryptographically prove that submitted measurements came from an
+  unmodified Home Assistant installation.
+- Hardware metadata explains results but cannot prove causation.
 
-## Example use cases
+## License
 
-- Compare Raspberry Pi vs Mini PC
-- Check whether an SSD upgrade improves Home Assistant
-- Compare VM performance before and after resource changes
-- Track performance over time
-- Detect slow storage
-- Benchmark before and after large Home Assistant changes
+MIT — see [LICENSE](LICENSE).
 
----
-
-## Current status
-
-Version **2.1.0** is a larger internal rewrite.
-
-Included:
-
-- new benchmark engine
-- new profile system
-- JSON / CSV export
-- dashboard helper
-- progress sensor
-- restart benchmark
-- diagnostics update
-- German and English translations
-
-> This version should be tested carefully after installation. Please check Home Assistant logs after the first restart.
-
----
-
-## Roadmap
-
-Planned ideas for future versions:
-
-- visual leaderboard export
-- local benchmark history graph
-- optional anonymous comparison payload
-- better dashboard package
-- automatic weekly benchmark automation
-- more detailed storage detection
-- optional recorder benchmark
-
----
-
-## Credits
-
-Created by **Jarnsen** for the Home Assistant community.
-
-If this project helps you compare or improve your Home Assistant setup, a star on GitHub is appreciated.
+Contributions are covered by [CONTRIBUTING.md](CONTRIBUTING.md). Please report
+security issues according to [SECURITY.md](SECURITY.md).

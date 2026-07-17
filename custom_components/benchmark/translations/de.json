@@ -1,35 +1,159 @@
 {
-  "title": "Home Assistant Benchmark",
+  "title": "Home Assistant Performance Benchmark",
   "config": {
     "step": {
       "user": {
-        "title": "Home Assistant Benchmark einrichten",
-        "description": "Richtet die lokale Benchmark-Integration ein."
+        "title": "Home Assistant Performance Benchmark einrichten",
+        "description": "Misst Reaktionsfähigkeit, Latenzen und Flüssigkeit von Home Assistant mit einem festen lokalen Testprotokoll."
       }
     },
     "abort": {
-      "already_configured": "Home Assistant Benchmark ist bereits eingerichtet."
+      "already_configured": "Der Home Assistant Performance Benchmark ist bereits eingerichtet.",
+      "single_instance_allowed": "Der Home Assistant Performance Benchmark ist bereits eingerichtet. Es wird nur eine Instanz unterstützt."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Benchmark-Optionen",
+        "description": "Standardprofil und Benachrichtigungsverhalten auswählen.",
+        "data": {
+          "default_profile": "Standardprofil",
+          "notifications": "Abschlussbenachrichtigungen anzeigen"
+        }
+      }
     }
   },
   "entity": {
     "sensor": {
-      "score": {"name": "Benchmark Score"},
-      "progress": {"name": "Benchmark Fortschritt"},
-      "status": {"name": "Benchmark Status"},
-      "active_profile": {"name": "Aktives Profil"},
-      "last_run": {"name": "Letzter Lauf"},
-      "last_error": {"name": "Letzter Fehler"},
-      "version": {"name": "Version"},
-      "cpu_performance": {"name": "CPU Performance"},
-      "disk_write": {"name": "Disk Schreiben"},
-      "disk_read": {"name": "Disk Lesen"},
-      "template_render": {"name": "Template Rendering"},
-      "restart_time": {"name": "Restart Zeit"}
+      "score": {
+        "name": "HA Performance Score"
+      },
+      "core_score": {
+        "name": "HA Core Score"
+      },
+      "fluidity_score": {
+        "name": "Flüssigkeits-Score"
+      },
+      "status": {
+        "name": "Status",
+        "state": {
+          "idle": "Bereit",
+          "running": "Läuft",
+          "restarting": "Startet neu",
+          "error": "Fehler"
+        }
+      },
+      "progress": {
+        "name": "Fortschritt"
+      },
+      "confidence": {
+        "name": "Messvertrauen",
+        "state": {
+          "high": "Hoch",
+          "medium": "Mittel",
+          "low": "Niedrig",
+          "unknown": "Unbekannt"
+        }
+      },
+      "active_profile": {
+        "name": "Aktives Profil",
+        "state": {
+          "quick": "Schnell",
+          "standard": "Standard",
+          "extended": "Erweitert"
+        }
+      },
+      "last_run": {
+        "name": "Letzter Lauf"
+      },
+      "event_loop_idle": {
+        "name": "Event Loop Leerlauf P95"
+      },
+      "event_loop_loaded": {
+        "name": "Event Loop unter Last P95"
+      },
+      "state_machine": {
+        "name": "State Machine P95"
+      },
+      "event_bus": {
+        "name": "Event Bus P95"
+      },
+      "service_calls": {
+        "name": "Service-Aufrufe P95"
+      },
+      "template_render": {
+        "name": "Template-Rendering P95"
+      },
+      "restart_time": {
+        "name": "Neustart-Wiederherstellungszeit"
+      },
+      "local_best_score": {
+        "name": "Lokaler Bestwert"
+      },
+      "history_count": {
+        "name": "Verlaufseinträge"
+      },
+      "last_error": {
+        "name": "Letzter Fehler"
+      },
+      "version": {
+        "name": "Version"
+      },
+      "entity_count": {
+        "name": "Entitäten"
+      },
+      "load_class": {
+        "name": "Instanzgröße",
+        "state": {
+          "small": "Klein",
+          "medium": "Mittel",
+          "large": "Groß",
+          "very_large": "Sehr groß",
+          "unknown": "Unbekannt"
+        }
+      },
+      "architecture": {
+        "name": "Architektur"
+      },
+      "cpu_model": {
+        "name": "CPU-Modell"
+      },
+      "cpu_cores": {
+        "name": "Logische CPU-Kerne"
+      },
+      "ram_total": {
+        "name": "Arbeitsspeicher gesamt"
+      }
     },
     "button": {
-      "start_light": {"name": "Start Light"},
-      "start_normal": {"name": "Start Normal"},
-      "start_heavy": {"name": "Start Heavy"}
+      "start_standard": {
+        "name": "Standard-Benchmark starten"
+      },
+      "start_quick": {
+        "name": "Schnelltest starten"
+      },
+      "start_extended": {
+        "name": "Erweiterten Benchmark starten"
+      },
+      "restart_and_run": {
+        "name": "Neu starten und messen"
+      },
+      "export_history": {
+        "name": "Verlauf exportieren"
+      },
+      "export_worldlist": {
+        "name": "Ranking-Daten exportieren"
+      },
+      "prepare_ranking": {
+        "name": "Ranking-Eintrag vorbereiten"
+      },
+      "show_dashboard": {
+        "name": "Dashboard-YAML anzeigen"
+      },
+      "report_issue": {
+        "name": "Problem melden"
+      }
     }
   }
 }
