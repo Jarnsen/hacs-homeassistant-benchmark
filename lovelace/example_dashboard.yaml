@@ -1,7 +1,7 @@
-title: Home Assistant Real World Benchmark
+title: Home Assistant Performance Benchmark
 views:
-  - title: Real World Benchmark
-    path: real-world-benchmark
+  - title: Performance
+    path: ha-performance
     icon: mdi:speedometer
     type: sections
     max_columns: 3
@@ -9,145 +9,102 @@ views:
       - type: grid
         cards:
           - type: heading
-            heading: Real World Score
-            icon: mdi:speedometer
+            heading: Home Assistant Performance
+            icon: mdi:home-assistant
           - type: gauge
             entity: sensor.benchmark_score
-            name: Real World Score
+            name: HA Performance Score
             min: 0
             max: 10000
             severity:
               red: 0
-              yellow: 3500
+              yellow: 4000
               green: 7000
+          - type: tile
+            entity: sensor.benchmark_core_score
+            name: HA Core Score
+          - type: tile
+            entity: sensor.benchmark_fluidity_score
+            name: Fluidity Score
+          - type: tile
+            entity: sensor.benchmark_confidence
+            name: Confidence
+          - type: tile
+            entity: button.benchmark_start_standard
+            name: Start standard benchmark
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: HA responsiveness (P95)
+            icon: mdi:timer-outline
+          - type: tile
+            entity: sensor.benchmark_event_loop_idle
+            name: Event loop idle
+          - type: tile
+            entity: sensor.benchmark_event_loop_loaded
+            name: Event loop under load
+          - type: tile
+            entity: sensor.benchmark_state_machine
+            name: State machine
+          - type: tile
+            entity: sensor.benchmark_event_bus
+            name: Event bus
+          - type: tile
+            entity: sensor.benchmark_service_calls
+            name: Service calls
+          - type: tile
+            entity: sensor.benchmark_template_render
+            name: Template rendering
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Status and history
+            icon: mdi:history
           - type: tile
             entity: sensor.benchmark_status
             name: Status
           - type: tile
             entity: sensor.benchmark_progress
-            name: Fortschritt
+            name: Progress
           - type: tile
-            entity: button.benchmark_start_real_world_benchmark
-            name: Start Real World Benchmark
-
-      - type: grid
-        cards:
-          - type: heading
-            heading: Ergebnisse
-            icon: mdi:chart-box-outline
+            entity: sensor.benchmark_last_run
+            name: Last run
           - type: tile
-            entity: sensor.benchmark_cpu_performance
-            name: CPU Performance
-          - type: tile
-            entity: sensor.benchmark_disk_write
-            name: Disk Schreiben
-          - type: tile
-            entity: sensor.benchmark_disk_read
-            name: Disk Lesen
-          - type: tile
-            entity: sensor.benchmark_template_render
-            name: Template Rendering
-          - type: tile
-            entity: sensor.benchmark_restart_time
-            name: Restart Zeit
-
-      - type: grid
-        cards:
-          - type: heading
-            heading: System & Lastklasse
-            icon: mdi:server
-          - type: tile
-            entity: sensor.benchmark_entity_count
-            name: Entitäten
-          - type: tile
-            entity: sensor.benchmark_load_class
-            name: Load Class
-          - type: tile
-            entity: sensor.benchmark_architecture
-            name: Architektur
-          - type: tile
-            entity: sensor.benchmark_cpu_cores
-            name: CPU Kerne
-          - type: tile
-            entity: sensor.benchmark_ram_total
-            name: RAM
-
-      - type: grid
-        cards:
-          - type: heading
-            heading: Ranking & Export
-            icon: mdi:trophy
+            entity: sensor.benchmark_active_profile
+            name: Profile
           - type: tile
             entity: sensor.benchmark_local_ranking
-            name: Lokaler Bestwert
+            name: Local best
+          - type: history-graph
+            title: Score history
+            hours_to_show: 720
+            entities:
+              - sensor.benchmark_score
+              - sensor.benchmark_core_score
+              - sensor.benchmark_fluidity_score
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Advanced actions
+            icon: mdi:tools
           - type: tile
-            entity: sensor.benchmark_worldlist_export
-            name: Worldlist Export Status
+            entity: button.benchmark_start_quick
+            name: Quick check
           - type: tile
-            entity: sensor.benchmark_ranking_issue
-            name: Ranking Issue Status
+            entity: button.benchmark_start_extended
+            name: Extended benchmark
+          - type: tile
+            entity: button.benchmark_restart_and_run
+            name: Restart and benchmark
+          - type: tile
+            entity: button.benchmark_export_history
+            name: Export history
           - type: tile
             entity: button.benchmark_export_worldlist
-            name: Export Worldlist
+            name: Export ranking payload
           - type: tile
-            entity: button.benchmark_create_ranking_issue
-            name: Ranking Issue erstellen
-          - type: tile
-            entity: button.benchmark_create_issue
-            name: Support Issue erstellen
-
-  - title: Worldlist
-    path: benchmark-worldlist
-    icon: mdi:earth
-    cards:
-      - type: markdown
-        title: Worldlist / Ranking
-        content: >
-          ## 🌍 Home Assistant Real World Benchmark Worldlist
-
-          Die globale Liste wird später aus GitHub-Ranking-Issues oder einer öffentlichen JSON-Datei erzeugt.
-
-          In Home Assistant siehst du bereits deine lokale Rankingliste über `sensor.benchmark_local_ranking`.
-
-          **Ablauf:**
-
-          1. Benchmark starten
-          2. Worldlist exportieren
-          3. Ranking Issue erstellen
-          4. Inhalt aus `/config/benchmark_worldlist_export.json` in GitHub einfügen
-
-      - type: picture
-        image: https://raw.githubusercontent.com/Jarnsen/hacs-homeassistant-benchmark/main/images/worldmap-ranking.svg
-        alt_text: Home Assistant Benchmark Worldmap
-
-      - type: entities
-        title: Lokales Ranking & Systemdaten
-        entities:
-          - sensor.benchmark_local_ranking
-          - sensor.benchmark_score
-          - sensor.benchmark_entity_count
-          - sensor.benchmark_load_class
-          - sensor.benchmark_architecture
-          - sensor.benchmark_cpu_cores
-          - sensor.benchmark_ram_total
-
-      - type: entities
-        title: Ranking Aktionen
-        entities:
-          - button.benchmark_start_real_world_benchmark
-          - button.benchmark_export_worldlist
-          - button.benchmark_create_ranking_issue
-          - button.benchmark_create_issue
-          - sensor.benchmark_worldlist_export
-          - sensor.benchmark_ranking_issue
-
-      - type: entities
-        title: Aktuelles Ergebnis
-        entities:
-          - sensor.benchmark_cpu_performance
-          - sensor.benchmark_disk_write
-          - sensor.benchmark_disk_read
-          - sensor.benchmark_template_render
-          - sensor.benchmark_restart_time
-          - sensor.benchmark_last_run
-          - sensor.benchmark_active_profile
+            entity: button.benchmark_prepare_ranking
+            name: Prepare ranking submission

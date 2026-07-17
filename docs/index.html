@@ -1,1 +1,190 @@
-<!DOCTYPE html><html><head><meta charset='utf-8'><title>Home Assistant Benchmark Leaderboard</title></head><body><h1>Home Assistant Benchmark Leaderboard</h1><p>Global ranking coming from benchmark submissions.</p><table border='1' id='tbl'><thead><tr><th>Rank</th><th>Score</th><th>Architecture</th><th>Storage</th></tr></thead><tbody></tbody></table><script>fetch('../leaderboard/leaderboard.json').then(r=>r.json()).then(data=>{const body=document.querySelector('#tbl tbody');(data.results||[]).sort((a,b)=>b.score-a.score).forEach((r,i)=>{body.innerHTML+=`<tr><td>${i+1}</td><td>${r.score}</td><td>${r.hardware?.architecture||''}</td><td>${r.hardware?.storage_type||''}</td></tr>`})})</script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <title>Home Assistant Performance Benchmark Worldlist</title>
+    <style>
+      :root {
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+        color: #172033;
+        background: #f4f7fb;
+      }
+      body {
+        margin: 0;
+        padding: 2rem 1rem;
+      }
+      main {
+        max-width: 1100px;
+        margin: auto;
+      }
+      h1 {
+        margin-bottom: .35rem;
+      }
+      .lead, #status {
+        color: #536078;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        margin: 1.5rem 0;
+      }
+      .card, .table-wrap {
+        background: white;
+        border: 1px solid #dce3ed;
+        border-radius: 14px;
+        box-shadow: 0 8px 28px rgba(23, 32, 51, .06);
+      }
+      .card {
+        padding: 1rem;
+      }
+      .card strong {
+        display: block;
+        font-size: 1.55rem;
+        margin-top: .3rem;
+      }
+      .table-wrap {
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th, td {
+        padding: .8rem;
+        border-bottom: 1px solid #e8edf4;
+        text-align: left;
+        white-space: nowrap;
+      }
+      th {
+        background: #eef7fd;
+      }
+      .score {
+        font-weight: 750;
+        color: #087eaa;
+      }
+      a {
+        color: #087eaa;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color: #e8eef8;
+          background: #111827;
+        }
+        .lead, #status {
+          color: #aebbd0;
+        }
+        .card, .table-wrap {
+          background: #182235;
+          border-color: #2c3950;
+        }
+        th {
+          background: #203047;
+        }
+        th, td {
+          border-color: #2c3950;
+        }
+        .score, a {
+          color: #41bdf5;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Home Assistant Performance Benchmark</h1>
+      <p class="lead">
+        A workflow-validated ranking of Home Assistant responsiveness. CPU,
+        RAM, architecture, and installation size are comparison metadata only.
+      </p>
+      <p id="status">Loading validated protocol v3 results…</p>
+
+      <section class="cards" aria-label="Worldlist summary">
+        <div class="card">Validated entries<strong id="count">—</strong></div>
+        <div class="card">Protocol<strong id="protocol">—</strong></div>
+        <div class="card">Score formula<strong id="formula">—</strong></div>
+        <div class="card">Last update<strong id="updated">—</strong></div>
+      </section>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>HA Score</th>
+              <th>Core</th>
+              <th>Fluidity</th>
+              <th>Confidence</th>
+              <th>HA Version</th>
+              <th>Entities</th>
+              <th>System</th>
+              <th>Architecture</th>
+              <th>Submission</th>
+            </tr>
+          </thead>
+          <tbody id="results"></tbody>
+        </table>
+      </div>
+      <p class="lead">
+        Scores and payload structure are validated automatically. Community
+        submissions are not cryptographically attested.
+      </p>
+    </main>
+
+    <script>
+      const text = (value) => value ?? "";
+      fetch("./worldlist.json", { cache: "no-store" })
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.json();
+        })
+        .then((data) => {
+          document.querySelector("#count").textContent = data.count;
+          document.querySelector("#protocol").textContent =
+            data.protocol_version;
+          document.querySelector("#formula").textContent = data.score_version;
+          document.querySelector("#updated").textContent = data.updated_at
+            ? new Date(data.updated_at).toLocaleString()
+            : "Not generated yet";
+          document.querySelector("#status").textContent =
+            "Scores are recomputed from measurements by the repository workflow.";
+
+          const body = document.querySelector("#results");
+          for (const entry of data.entries || []) {
+            const row = document.createElement("tr");
+            const values = [
+              entry.rank,
+              entry.score,
+              entry.core_score,
+              entry.fluidity_score,
+              entry.confidence,
+              entry.home_assistant_version,
+              entry.entity_count,
+              entry.device_model || entry.cpu_model,
+              entry.architecture,
+            ];
+            values.forEach((value, index) => {
+              const cell = document.createElement("td");
+              cell.textContent = text(value);
+              if (index === 1) cell.className = "score";
+              row.appendChild(cell);
+            });
+            const issueCell = document.createElement("td");
+            const link = document.createElement("a");
+            link.href = entry.issue_url;
+            link.textContent = `#${entry.issue_number}`;
+            link.rel = "noopener";
+            issueCell.appendChild(link);
+            row.appendChild(issueCell);
+            body.appendChild(row);
+          }
+        })
+        .catch((error) => {
+          document.querySelector("#status").textContent =
+            `Unable to load the worldlist: ${error.message}`;
+        });
+    </script>
+  </body>
+</html>
