@@ -1,5 +1,5 @@
 pytest-homeassistant-custom-component==0.13.301; python_version < "3.14"
-pytest-homeassistant-custom-component==0.13.346; python_version >= "3.14"
+pytest-homeassistant-custom-component==0.13.362; python_version >= "3.14"
 # Keep the minimum-version resolver on HA 2025.12-compatible Bluetooth wheels.
 habluetooth==6.1.0; python_version < "3.14"
 bluetooth-data-tools==1.28.4; python_version < "3.14"
